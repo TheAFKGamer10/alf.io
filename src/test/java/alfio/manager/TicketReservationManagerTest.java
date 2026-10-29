@@ -631,7 +631,7 @@ class TicketReservationManagerTest {
         when(ticketRepository.findById(eq(TICKET_ID), eq(TICKET_CATEGORY_ID))).thenReturn(ticket);
         String query = "batch-reserve-tickets";
         when(ticketRepository.batchReserveTicketsForSpecialPrice()).thenReturn(query);
-        trm.reserveTicketsForCategory(event, RESERVATION_ID, reservationModification, Locale.ENGLISH, false, discount, null);
+        trm.reserveTicketsForCategory(event, RESERVATION_ID, reservationModification, Locale.ENGLISH, false, discount, null, null);
         verify(jdbcTemplate).batchUpdate(eq(query), any(SqlParameterSource[].class));
         verify(specialPriceRepository).batchUpdateStatus(eq(List.of(1,2)), eq(SpecialPrice.Status.PENDING), eq(accessCodeId));
     }
