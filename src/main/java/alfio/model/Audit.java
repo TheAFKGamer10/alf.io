@@ -92,13 +92,15 @@ public class Audit {
     private final String firstName;
     private final String lastName;
     private final String email;
+    private final String description;
 
 
     public Audit(@Column("reservation_id") String reservationId, @Column("event_type") EventType eventType,
                  @Column("event_time") Date eventTime, @Column("entity_type") EntityType entityType,
                  @Column("entity_id") String entityId, @Column("modifications") String modifications,
                  @Column("username") String username, @Column("first_name") String firstName,
-                 @Column("last_name") String lastName, @Column("email_address") String email) {
+                 @Column("last_name") String lastName, @Column("email_address") String email,
+                @Column("description") String description) {
         this.reservationId = reservationId;
         this.eventType = eventType;
         this.eventTime = eventTime;
@@ -109,5 +111,6 @@ public class Audit {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
+        this.description = description;
     }
 }

@@ -144,6 +144,11 @@ public enum ConfigurationKeys {
     SMTP_PASSWORD("SMTP Password", false, SettingCategory.MAIL, ComponentType.TEXT, false, EnumSet.of(SYSTEM)),
     SMTP_FROM_EMAIL("E-Mail sender", false, SettingCategory.MAIL, ComponentType.TEXT, false, EnumSet.of(SYSTEM)),
     SMTP_PROPERTIES("SMTP Properties", false, SettingCategory.MAIL, ComponentType.TEXTAREA, false, EnumSet.of(SYSTEM)),
+    SMTP_MESSAGE_ID_DOMAIN("Message-ID domain (default: SMTP hostname)", false, SettingCategory.MAIL, ComponentType.TEXT, false, EnumSet.of(SYSTEM)),
+
+    SMTP_LOCALHOST("SMTP Localhost (HELO hostname)", false, SettingCategory.MAIL, ComponentType.TEXT, false, EnumSet.of(SYSTEM)),
+    SMTP_LOCALADDRESS("SMTP Local Address (for reverse DNS)", false, SettingCategory.MAIL, ComponentType.TEXT, false, EnumSet.of(SYSTEM)),
+    SMTP_QUITWAIT("Wait for SMTP QUIT response (default true)", false, SettingCategory.MAIL, ComponentType.BOOLEAN, false, EnumSet.of(SYSTEM), BooleanUtils.TRUE),
 
     BANK_TRANSFER_ENABLED("Bank transfer enabled", false, SettingCategory.PAYMENT_OFFLINE, ComponentType.BOOLEAN, false, EnumSet.of(SYSTEM, ORGANIZATION), BooleanUtils.FALSE),
     DEFERRED_BANK_TRANSFER_ENABLED("Send payment instructions manually (default false)", false, SettingCategory.PAYMENT_OFFLINE, ComponentType.BOOLEAN, false, EnumSet.of(SYSTEM, ORGANIZATION, PURCHASE_CONTEXT), BooleanUtils.FALSE),

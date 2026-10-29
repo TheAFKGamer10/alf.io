@@ -78,6 +78,20 @@ public class Formatters {
             getFormattedDate(contentLanguages, e.getEnd(), "common.event.time-format", messageSource)
         );
     }
+    
+    /**
+     * Format arbitrary start/end ZonedDateTime values using the same localization rules
+     * as getFormattedDates(Event...). This is used when ticket/category validity
+     * differs from the event begin/end.
+     */
+    public static FormattedEventDates getFormattedDates(ZonedDateTime start, ZonedDateTime end, MessageSource messageSource, List<ContentLanguage> contentLanguages) {
+        return new FormattedEventDates(
+            getFormattedDate(contentLanguages, start, "common.event.date-format", messageSource),
+            getFormattedDate(contentLanguages, start, "common.event.time-format", messageSource),
+            getFormattedDate(contentLanguages, end, "common.event.date-format", messageSource),
+            getFormattedDate(contentLanguages, end, "common.event.time-format", messageSource)
+        );
+    }
 
     public static Map<String, String> applyCommonMark(Map<String, String> in) {
         return applyCommonMark(in, null);

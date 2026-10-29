@@ -319,6 +319,20 @@ public interface TicketReservationRepository {
     @Query("select count(b.id) from tickets_reservation a, ticket b where a.id = :reservationId and b.tickets_reservation_id = a.id")
     Integer countTicketsInReservationNoCategories(@Bind("reservationId") String reservationId);
 
+    default Integer countDiscountedTicketsInReservationForCategories(String reservationId, Collection<Integer> categories) {
+        if(categories == null || categories.isEmpty()) {
+            return this.countDiscountedTicketsInReservationNoCategories(reservationId);
+        } else {
+            return this.countDiscountedTicketsInReservationForExistingCategories(reservationId, categories);
+        }
+    }
+
+    @Query("select count(b.id) from tickets_reservation a, ticket b where a.id = :reservationId and b.tickets_reservation_id = a.id and (b.category_id in (:categories)) and b.discount_cts <> 0")
+    Integer countDiscountedTicketsInReservationForExistingCategories(@Bind("reservationId") String reservationId, @Bind("categories") Collection<Integer> categories);
+
+    @Query("select count(b.id) from tickets_reservation a, ticket b where a.id = :reservationId and b.tickets_reservation_id = a.id and b.discount_cts <> 0")
+    Integer countDiscountedTicketsInReservationNoCategories(@Bind("reservationId") String reservationId);
+
     @Query("select billing_address_company, billing_address_line1, billing_address_line2, billing_address_zip, billing_address_city, billing_address_state, vat_nr, vat_country, invoicing_additional_information from tickets_reservation where id = :reservationId")
     BillingDetails getBillingDetailsForReservation(@Bind("reservationId") String reservationId);
 

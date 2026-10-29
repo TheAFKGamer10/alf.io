@@ -327,14 +327,14 @@ public class TicketReservationManager {
 
         Optional<PromoCodeDiscount> dynamicDiscount = createDynamicPromoCode(discount, event, list, reservationId);
 
+        // compute remaining discounted slots (if any) and lock the promo row to serialize reservation modifications
+        final AtomicInteger remainingDiscountSlots = new AtomicInteger(0);
         discount.ifPresent(d -> {
             if (d.getMaxUsage() != null) {
                 promoCodeDiscountRepository.lockForCount(d.getId());
-                var discountedCategories = d.getCategories();
-                var appliedDiscountCount = CollectionUtils.isEmpty(discountedCategories) ? list.size() : list.stream().filter(t -> discountedCategories.contains(t.getTicketCategoryId())).count();
-                if (d.getMaxUsage() < promoCodeDiscountRepository.countUsedPromoCode(d.getId()) + appliedDiscountCount) {
-                    throw new TooManyTicketsForDiscountCodeException();
-                }
+                Integer confirmed = promoCodeDiscountRepository.countConfirmedPromoCode(d.getId());
+                int remaining = Math.max(0, d.getMaxUsage() - (confirmed == null ? 0 : confirmed));
+                remainingDiscountSlots.set(remaining);
             }
         });
 
@@ -349,7 +349,7 @@ public class TicketReservationManager {
             event.getOrganizationId(),
             retrievePublicUserId(principal));
 
-        list.forEach(t -> reserveTicketsForCategory(event, reservationId, t, locale, forWaitingQueue, discount.orElse(null), dynamicDiscount.orElse(null)));
+        list.forEach(t -> reserveTicketsForCategory(event, reservationId, t, locale, forWaitingQueue, discount.orElse(null), dynamicDiscount.orElse(null), remainingDiscountSlots));
 
         // add all additional services
         additionalServiceManager.bookAdditionalServicesForReservation(event, reservationId, additionalServices, discount);
@@ -409,14 +409,37 @@ public class TicketReservationManager {
                                    Locale locale,
                                    boolean forWaitingQueue,
                                    PromoCodeDiscount accessCodeOrDiscount,
-                                   PromoCodeDiscount dynamicDiscount) {
+                                   PromoCodeDiscount dynamicDiscount,
+                                   AtomicInteger remainingDiscountSlots) {
 
         List<SpecialPrice> specialPrices;
         if(accessCodeOrDiscount != null && accessCodeOrDiscount.getCodeType() == CodeType.ACCESS
             && ticketReservation.getTicketCategoryId().equals(accessCodeOrDiscount.getHiddenCategoryId())
             && Boolean.TRUE.equals(ticketCategoryRepository.isAccessRestricted(accessCodeOrDiscount.getHiddenCategoryId()))
         ) {
-            specialPrices = reserveTokensForAccessCode(ticketReservation, accessCodeOrDiscount);
+            // bind up to remainingDiscountSlots for access codes; if no remaining slots, fall back to no special prices
+            int toBind = ticketReservation.getQuantity();
+            if (remainingDiscountSlots != null) {
+                toBind = Math.min(remainingDiscountSlots.get(), toBind);
+            }
+            if (toBind > 0) {
+                try {
+                    Validate.isTrue(promoCodeDiscountRepository.lockAccessCodeForUpdate(accessCodeOrDiscount.getId()).equals(accessCodeOrDiscount.getId()));
+                    List<SpecialPrice> boundSpecialPrices = specialPriceRepository.bindToAccessCode(ticketReservation.getTicketCategoryId(), accessCodeOrDiscount.getId(), toBind);
+                    if(boundSpecialPrices.size() != toBind) {
+                        throw new NotEnoughTicketsException();
+                    }
+                    specialPrices = boundSpecialPrices;
+                } catch (Exception e) {
+                    log.trace("constraints violated", e);
+                    if(e instanceof NotEnoughTicketsException) {
+                        throw e;
+                    }
+                    throw new TooManyTicketsForDiscountCodeException();
+                }
+            } else {
+                specialPrices = List.of();
+            }   
         } else {
             //first check if there is another pending special price token bound to the current sessionId
             Optional<SpecialPrice> specialPrice = fixToken(ticketReservation.getSpecialPrice(), ticketReservation.getTicketCategoryId(), event.getId(), ticketReservation);
@@ -430,20 +453,65 @@ public class TicketReservationManager {
         }
 
         TicketCategory category = ticketCategoryRepository.getByIdAndActive(ticketReservation.getTicketCategoryId(), event.getId());
+        // If we have specialPrices (access tokens) they are bound to a prefix of reserved tickets. If remainingDiscountSlots was provided
+        // and the requested quantity exceeded it, we need to apply discounts only to the first N tickets and regular price to remaining.
+        int quantity = reservedForUpdate.size();
+        int discountedCount = 0;
+        if (!specialPrices.isEmpty()) {
+            discountedCount = specialPrices.size();
+        } else if (ObjectUtils.firstNonNull(dynamicDiscount, accessCodeOrDiscount) != null && remainingDiscountSlots != null) {
+            // compute how many discounts can be applied for this category based on remaining slots and category applicability
+            var promo = ObjectUtils.firstNonNull(dynamicDiscount, accessCodeOrDiscount);
+            var discountedCategories = promo.getCategories();
+            boolean categoryApplicable = CollectionUtils.isEmpty(discountedCategories) || discountedCategories.contains(ticketReservation.getTicketCategoryId());
+            if (categoryApplicable) {
+                discountedCount = Math.min(remainingDiscountSlots.get(), quantity);
+            }
+        } else if (ObjectUtils.firstNonNull(dynamicDiscount, accessCodeOrDiscount) != null) {
+            // no remainingDiscountSlots provided -> apply discount to all
+            discountedCount = quantity;
+        }
+
+        // initialize tickets (for special prices we already bound as many as possible earlier). We'll still call init to set owners and metadata.
         initTicketsForReservation(event, reservationId, locale, accessCodeOrDiscount, specialPrices, reservedForUpdate, category, ticketReservation);
         Ticket ticket = ticketRepository.findById(reservedForUpdate.get(0), category.getId());
-        var discountToApply = ObjectUtils.firstNonNull(dynamicDiscount, accessCodeOrDiscount);
-        TicketPriceContainer priceContainer = TicketPriceContainer.from(ticket, null, event.getVat(), event.getVatStatus(), discountToApply);
-        var currencyCode = priceContainer.getCurrencyCode();
-        ticketRepository.updateTicketPrice(reservedForUpdate,
-            category.getId(),
-            event.getId(),
-            category.getSrcPriceCts(),
-            MonetaryUtil.unitToCents(priceContainer.getFinalPrice(), currencyCode),
-            MonetaryUtil.unitToCents(priceContainer.getVAT(), currencyCode),
-            MonetaryUtil.unitToCents(priceContainer.getAppliedDiscount(), currencyCode),
-            category.getCurrencyCode(),
-            priceContainer.getVatStatus());
+        var promoToApply = ObjectUtils.firstNonNull(dynamicDiscount, accessCodeOrDiscount);
+        var currencyCode = category.getCurrencyCode();
+
+        if (discountedCount > 0 && promoToApply != null) {
+            // apply discount to the first discountedCount tickets
+            List<Integer> discountedIds = reservedForUpdate.subList(0, discountedCount);
+            TicketPriceContainer discountedPriceContainer = TicketPriceContainer.from(ticket, null, event.getVat(), event.getVatStatus(), promoToApply);
+            ticketRepository.updateTicketPrice(discountedIds,
+                category.getId(),
+                event.getId(),
+                category.getSrcPriceCts(),
+                MonetaryUtil.unitToCents(discountedPriceContainer.getFinalPrice(), currencyCode),
+                MonetaryUtil.unitToCents(discountedPriceContainer.getVAT(), currencyCode),
+                MonetaryUtil.unitToCents(discountedPriceContainer.getAppliedDiscount(), currencyCode),
+                category.getCurrencyCode(),
+                discountedPriceContainer.getVatStatus());
+
+            // decrement remaining slots
+            if (remainingDiscountSlots != null) {
+                remainingDiscountSlots.addAndGet(-discountedCount);
+            }
+        }
+
+        if (discountedCount < quantity) {
+            // apply normal price to remaining tickets (if any)
+            List<Integer> remainingIds = reservedForUpdate.subList(discountedCount, quantity);
+            TicketPriceContainer normalPriceContainer = TicketPriceContainer.from(ticket, null, event.getVat(), event.getVatStatus(), null);
+            ticketRepository.updateTicketPrice(remainingIds,
+                category.getId(),
+                event.getId(),
+                category.getSrcPriceCts(),
+                MonetaryUtil.unitToCents(normalPriceContainer.getFinalPrice(), currencyCode),
+                MonetaryUtil.unitToCents(normalPriceContainer.getVAT(), currencyCode),
+                MonetaryUtil.unitToCents(normalPriceContainer.getAppliedDiscount(), currencyCode),
+                category.getCurrencyCode(),
+                normalPriceContainer.getVatStatus());
+        }
     }
 
     private void initTicketsForReservation(Event event,
@@ -722,10 +790,12 @@ public class TicketReservationManager {
             if (promoCode.getMaxUsage() == null) {
                 return false;
             }
-            int currentTickets = ticketReservationRepository.countTicketsInReservationForCategories(reservationId, categoriesOrNull(promoCode));
+            // Only already-discounted tickets in this reservation consume promo-code slots.
+            int discountedTickets = ticketReservationRepository.countDiscountedTicketsInReservationForCategories(reservationId, categoriesOrNull(promoCode));
             return Boolean.TRUE.equals(serializedTransactionTemplate.execute(status -> {
                 Integer confirmedPromoCode = promoCodeDiscountRepository.countConfirmedPromoCode(promoCode.getId());
-                return promoCode.getMaxUsage() < currentTickets + confirmedPromoCode;
+                // If already-discounted tickets + confirmed uses exceed maxUsage, then usage is exceeded.
+                return promoCode.getMaxUsage() < (discountedTickets + (confirmedPromoCode == null ? 0 : confirmedPromoCode));
             }));
         }
         return false;

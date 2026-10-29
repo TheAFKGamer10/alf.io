@@ -47,9 +47,9 @@ public class FileUploadManager {
 
     private static final String FILE_SECTION = "file-upload-manager";
     /**
-     * Maximum allowed file size is 400kb
+     * Maximum allowed file size is 1MB * 5 = 5MB. 
      */
-    private static final int MAXIMUM_ALLOWED_SIZE = 1024 * 400;
+    private static final int MAXIMUM_ALLOWED_SIZE = 1024 * 1024 * 5;
     private static final MimeType IMAGE_TYPE = MimeType.valueOf("image/*");
     private final FileUploadRepository repository;
     private final FileBlobCacheManager fileBlobCacheManager;

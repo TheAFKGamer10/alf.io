@@ -110,6 +110,10 @@ public class SaleableTicketCategory implements PriceContainer {
         return event.getVatStatus();
     }
 
+    public int getFinalPriceCts() {
+        return getFinalPrice().multiply(new BigDecimal(100)).intValue();
+    }
+
     public String getFormattedFinalPrice() {
         if (StringUtils.isNotEmpty(getCurrencyCode())) {
             return MonetaryUtil.formatUnit(getFinalPriceToDisplay(getFinalPrice().add(getAppliedDiscount()), getVAT(), getVatStatus()), getCurrencyCode());

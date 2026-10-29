@@ -121,9 +121,9 @@ export class BookingComponent implements OnInit, AfterViewInit {
 
               // auto complete (copy by default first/lastname + email to ticket) is enabled only if we have only
               // one ticket
-              if (this.ticketCounts === 1 && this.purchaseContext.assignmentConfiguration.enableAttendeeAutocomplete) {
+              // if (this.ticketCounts === 1 && this.purchaseContext.assignmentConfiguration.enableAttendeeAutocomplete) {
                   this.enableAttendeeAutocomplete = true;
-              }
+              // }
               //
 
               //
@@ -159,6 +159,18 @@ export class BookingComponent implements OnInit, AfterViewInit {
                   subscriptionOwner: this.buildSubscriptionOwnerFormGroup(this.reservationInfo.subscriptionInfos, user),
                   additionalServices: this.ticketService.buildAdditionalServicesFormGroup(additionalServices, this.i18nService.getCurrentLang())
               });
+              // add an email confirmation control (not persisted) and wire up match validation
+              // Initialize emailConfirmation with the email value to preserve it when navigating back
+              const emailValue = this.reservationInfo.email || user?.emailAddress || '';
+              this.contactAndTicketsForm.addControl('emailConfirmation', this.formBuilder.control(emailValue, [Validators.required, Validators.maxLength(255)]));
+              const emailCtrl = this.contactAndTicketsForm.get('email');
+              const confCtrl = this.contactAndTicketsForm.get('emailConfirmation');
+              if (emailCtrl) {
+                  emailCtrl.valueChanges.subscribe(() => this.updateEmailMatchValidation());
+              }
+              if (confCtrl) {
+                  confCtrl.valueChanges.subscribe(() => this.updateEmailMatchValidation());
+              }
 
               additionalServices.forEach(asd => {
                   if (this.additionalServicesWithData[asd.ticketUUID] != null) {
@@ -193,6 +205,32 @@ export class BookingComponent implements OnInit, AfterViewInit {
       });
   }
 
+  emailMismatch(): boolean {
+    const conf = this.contactAndTicketsForm.get('emailConfirmation');
+    return !!(conf && conf.errors && conf.errors['mismatch']);
+  }
+
+  private updateEmailMatchValidation(): void {
+    const email = this.contactAndTicketsForm.get('email')?.value;
+    const conf = this.contactAndTicketsForm.get('emailConfirmation')?.value;
+    const confCtrl = this.contactAndTicketsForm.get('emailConfirmation');
+    if (!confCtrl) return;
+    if (email == null || conf == null) return;
+    if (email !== conf) {
+      confCtrl.setErrors(Object.assign({}, confCtrl.errors, { mismatch: true }));
+    } else {
+      if (confCtrl.errors) {
+        const { mismatch, ...other } = confCtrl.errors as any;
+        const keys = Object.keys(other || {});
+        if (keys.length === 0) {
+          confCtrl.setErrors(null);
+        } else {
+          confCtrl.setErrors(other);
+        }
+      }
+    }
+  }
+
   private buildSubscriptionOwnerFormGroup(subscriptionInfos: Array<ReservationSubscriptionInfo> | undefined, user?: User): UntypedFormGroup {
     if (subscriptionInfos != null) {
       const subscriptionInfo = subscriptionInfos[0];
@@ -225,10 +263,25 @@ export class BookingComponent implements OnInit, AfterViewInit {
     // check invoice data, remove company data if private invoice has been chosen
     if (this.contactAndTicketsForm.get('invoiceRequested').value && !this.contactAndTicketsForm.get('addCompanyBillingDetails').value) {
       ['billingAddressCompany', 'vatNr', 'skipVatNr'].forEach(n => this.contactAndTicketsForm.get(n).setValue(null));
+      // remove emailConfirmation so it's not sent to the backend
+      if (this.contactAndTicketsForm.contains && this.contactAndTicketsForm.contains('emailConfirmation')) {
+        this.contactAndTicketsForm.removeControl('emailConfirmation');
+      }
     }
   }
 
   submitForm(): void {
+    // ensure validation messages are shown
+    if (this.contactAndTicketsForm) this.contactAndTicketsForm.markAllAsTouched();
+
+    // prevent submission when email confirmation mismatches
+    const confCtrl = this.contactAndTicketsForm?.get('emailConfirmation');
+    // keep the form on the page and let the user correct the email
+    if (confCtrl && confCtrl.errors && confCtrl.errors['mismatch']) return;
+
+    // also prevent submission when the form is invalid
+    if (this.contactAndTicketsForm && this.contactAndTicketsForm.invalid) return;
+
     this.removeUnnecessaryFields();
     this.validateToOverview(false);
   }
@@ -267,8 +320,11 @@ export class BookingComponent implements OnInit, AfterViewInit {
                     const uuid = result[1];
                     const fieldName = result[2];
                     const links = this.contactAndTicketsForm.value.additionalServices.links[uuid];
-                    const index = links.findIndex(link => link.fields[fieldName] != null);
-                    return `additionalServices.links.${uuid}.${index}.fields.${fieldName}.${result[3]}`;
+                    if (links) {
+                      const index = links.findIndex(link => link.fields[fieldName] != null);
+                      return `additionalServices.links.${uuid}.${index}.fields.${fieldName}.${result[3]}`;
+                    }
+                    return key;
                 }
                 return key;
             });
@@ -325,11 +381,24 @@ export class BookingComponent implements OnInit, AfterViewInit {
   }
 
   handleAutocomplete(fieldName: string, value: string) {
-    if (this.enableAttendeeAutocomplete) {
-      const ticketUUID = Object.keys(this.contactAndTicketsForm.get('tickets').value)[0];
-      const targetControl = this.contactAndTicketsForm.get(`tickets.${ticketUUID}.${fieldName}`);
-      if (targetControl.pristine && (targetControl.value == null || targetControl.value === '')) {
-        targetControl.setValue(value);
+    // Always copy to all tickets if there is more than one ticket
+    const ticketsForm = this.contactAndTicketsForm.get('tickets');
+    if (ticketsForm) {
+      const ticketUUIDs = Object.keys(ticketsForm.value);
+      if (ticketUUIDs.length > 1) {
+        ticketUUIDs.forEach(uuid => {
+          const targetControl = this.contactAndTicketsForm.get(`tickets.${uuid}.${fieldName}`);
+          if (targetControl) {
+            targetControl.setValue(value);
+          }
+        });
+      } else {
+        // For single ticket, preserve original behavior
+        const uuid = ticketUUIDs[0];
+        const targetControl = this.contactAndTicketsForm.get(`tickets.${uuid}.${fieldName}`);
+        if (targetControl && (targetControl.pristine || targetControl.value == null || targetControl.value === '')) {
+          targetControl.setValue(value);
+        }
       }
     }
   }
@@ -343,9 +412,12 @@ export class BookingComponent implements OnInit, AfterViewInit {
   }
 
   copyContactInfoTo(ticket: Ticket) {
-    ['firstName', 'lastName', 'email'].forEach(field => {
-      const val = this.contactAndTicketsForm.get(field).value;
-      this.contactAndTicketsForm.get(`tickets.${ticket.uuid}.${field}`).setValue(val);
+    ['firstName', 'lastName', 'email', 'emailConfirmation'].forEach(field => {
+      const fieldCtrl = this.contactAndTicketsForm.get(field);
+      const ticketFieldCtrl = this.contactAndTicketsForm.get(`tickets.${ticket.uuid}.${field}`);
+      if (fieldCtrl && ticketFieldCtrl) {
+        ticketFieldCtrl.setValue(fieldCtrl.value);
+      }
     });
   }
 

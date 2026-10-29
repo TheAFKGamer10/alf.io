@@ -81,7 +81,14 @@ export class EventDisplayComponent implements OnInit, OnDestroy {
     private feedbackService: FeedbackService) { }
 
   ngOnInit(): void {
-
+    // Ensure a default translation exists for the Fast Pass summary label so the UI shows a friendly label
+    // even if the server-provided translation bundle doesn't include it yet. Merge with existing translations.
+    const fallback = { 'show-event.fast-pass': 'Fast Pass' };
+    try {
+      this.translate.setTranslation(this.translate.currentLang || 'en', fallback, true);
+    } catch (e) {
+      // noop - if translate service isn't ready yet, ignore
+    }
     this.subscription = this.refreshDebouncer
         .pipe(debounceTime(500))
         .subscribe(() => this.doRefreshCategories());
@@ -140,9 +147,18 @@ export class EventDisplayComponent implements OnInit, OnDestroy {
     this.ticketCategoryAmount = {};
     this.ticketCategories.forEach(tc => {
       this.ticketCategoryAmount[tc.id] = [];
-      for (let i = 0; i <= tc.maximumSaleableTickets; i++) {
+      // Allow user to select more than the promo-limited maximum. We'll still show how many tickets will be discounted.
+      const availableFallback = itemsByCat.maxTicketsPerReservation ?? 10;
+      const available = tc.availableTickets == null ? availableFallback : tc.availableTickets;
+      // keep the UI selectable up to the general available limit (not strictly the promo-limited maximum)
+      const maxSelectable = Math.min(available, availableFallback);
+      for (let i = 0; i <= maxSelectable; i++) {
         this.ticketCategoryAmount[tc.id].push(i);
       }
+      // store how many discounted slots remain for UI hint (maximumSaleableTickets already factors promo remaining slots)
+      // if maximumSaleableTickets is null, treat as 0 (no promo limits)
+      (this as any).discountedRemaining = (this as any).discountedRemaining || {};
+      (this as any).discountedRemaining[tc.id] = tc.maximumSaleableTickets ?? 0;
     });
 
     this.supplementCategories = itemsByCat.additionalServices.filter(e => e.type === 'SUPPLEMENT');
@@ -164,7 +180,8 @@ export class EventDisplayComponent implements OnInit, OnDestroy {
         selectedCategory: null,
         userLanguage: null,
         termAndConditionsAccepted: null,
-        privacyPolicyAccepted: null
+        privacyPolicyAccepted: null,
+        waiverAccepted: null
       });
     }
   }
@@ -201,9 +218,34 @@ export class EventDisplayComponent implements OnInit, OnDestroy {
   }
 
   private scrollToTickets(): void {
+    // Delay to ensure DOM is rendered/updated (forms, details, ngFor, etc.)
     setTimeout(() => {
-      if (this.tickets?.nativeElement != null) {
-        this.tickets.nativeElement.scrollIntoView(true);
+      try {
+        const fragment = this.route.snapshot.fragment;
+        if (fragment) {
+          const target = document.getElementById(fragment);
+          if (target) {
+            // If the target is inside a Fast Pass <details> (or any details), open it first
+            const details = target.closest('details.fast-pass-details, details');
+            if (details && (details as HTMLDetailsElement).open === false) {
+              (details as HTMLDetailsElement).open = true;
+            }
+
+            // Scroll the specific target into view
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+        }
+
+        // Fallback: scroll to the tickets anchor
+        if (this.tickets?.nativeElement != null) {
+          this.tickets.nativeElement.scrollIntoView(true);
+        }
+      } catch (e) {
+        // If anything goes wrong, fall back to the original behavior
+        if (this.tickets?.nativeElement != null) {
+          this.tickets.nativeElement.scrollIntoView(true);
+        }
       }
     }, 10);
   }
@@ -284,9 +326,9 @@ export class EventDisplayComponent implements OnInit, OnDestroy {
     return category.availableTickets != null && category.availableTickets > 0;
   }
 
-  private reloadTicketsInfo(promoCode: string, eventCode: EventCode) {
+  private reloadTicketsInfo(promoCode: string | null, eventCode: EventCode) {
     this.eventService.getEventTicketsInfo(this.event.shortName, promoCode).subscribe(itemsByCat => {
-      this.reservationForm.get('promoCode').setValue(promoCode);
+      this.reservationForm.get('promoCode')!.setValue(promoCode);
       this.reservationForm.setControl('reservation', this.formBuilder.array(this.createItems(itemsByCat.ticketCategories)));
       this.applyItemsByCat(itemsByCat);
       this.eventCode = eventCode;
@@ -334,6 +376,19 @@ export class EventDisplayComponent implements OnInit, OnDestroy {
 
   handleRefreshCommand() {
     this.refreshDebouncer.next(null);
+  }
+
+  /** Number of ticket categories whose name starts with 'Fast Pass:' */
+  get fastPassCount(): number {
+    if (!this.ticketCategories) {
+      return 0;
+    }
+    return this.ticketCategories.filter(tc => tc.name && tc.name.startsWith('Fast Pass:')).length;
+  }
+
+  /** Whether there are any Fast Pass ticket categories */
+  get hasFastPass(): boolean {
+    return this.fastPassCount > 0;
   }
 
   private doRefreshCategories() {

@@ -41,6 +41,13 @@
           <div class="form-group">
               <label class="form-label" for="email">{{'common.email'|translate}}{{' '}}*</label>
               <input id="email" class="form-control" formControlName="email" aria-required="true" type="email" #contactLastEmail autocomplete="email" [attr.maxlength]="255" appInvalidFeedback (change)="handleAutocomplete('email', contactLastEmail.value)">
+              <!-- confirmation field -->
+              <div class="mt-2">
+                <label class="form-label" for="email-confirm">{{'reservation-page.confirm-email'|translate}}{{' '}}*</label>
+                <input id="email-confirm" class="form-control" formControlName="emailConfirmation" type="email" [attr.maxlength]="255" appInvalidFeedback>
+                <!-- no suggestions: user must type the same email twice -->
+                <div *ngIf="emailMismatch()" class="text-danger mt-1">{{'reservation-page.email.mismatch'|translate}}</div>
+              </div>
           </div>
         </div>
       </div>
@@ -173,7 +180,7 @@
 
     <div class="row d-flex justify-content-between mobile-add-margin-bottom">
       <div class="col-md-5 order-md-1 col-12">
-        <button type="submit" class="block-button btn btn-success" translate="reservation-page.continue" [disabled]="expired"></button>
+        <button type="submit" class="block-button btn btn-success" translate="reservation-page.continue" [disabled]="expired || contactAndTicketsForm?.invalid"></button>
       </div>
       <div class="col-md-5 order-md-0 col-12">
         <button type="button" class="block-button btn btn-light" (click)="cancelPendingReservation()" translate="reservation-page.cancel"></button>

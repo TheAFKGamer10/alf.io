@@ -2,24 +2,31 @@
   <h2 translate="ticket.event-info" class="mt-4 mb-4 d-none d-md-block"></h2>
 
   <div>
-    <dl class="row">
-        <dt class="col-1 text-body-secondary"><fa-icon [icon]="['far', 'building']" a11yRole="presentation"></fa-icon></dt>
-        <dd class="col-11">{{'show-event.by'|translate}} <strong><a [href]="'mailto:'+ event.organizationEmail">{{event.organizationName}}</a></strong></dd>
-        <dt class="col-1 text-body-secondary"><fa-icon [icon]="['far', 'calendar-alt']" [title]="'ticket.date-time' | translate"></fa-icon></dt>
-        <dd class="col-11">
+    <dl class="row flex-col-md">
+      <div class="d-flex">
+        <dt class="me-2 me-md-3 text-body-secondary"><fa-icon [icon]="['far', 'building']" a11yRole="presentation"></fa-icon></dt>
+        <dd class="flex-fill">{{'show-event.by'|translate}} <strong><a [href]="'mailto:'+ event.organizationEmail">{{event.organizationName}}</a></strong></dd>
+      </div>
+      <div class="d-flex">
+        <dt class="me-2 me-md-3 text-body-secondary"><fa-icon [icon]="['far', 'calendar-alt']" [title]="'ticket.date-time' | translate"></fa-icon></dt>
+        <dd class="flex-fill">
           <app-event-dates [dateValidityProvider]="dateValidityProvider"></app-event-dates>
         </dd>
-        <dt class="col-1 text-body-secondary"><fa-icon [icon]="['far', 'calendar-plus']" a11yRole="presentation"></fa-icon></dt>
-        <dd class="col-11">
+      </div>
+      <div class="d-flex">
+        <dt class="me-2 me-md-3 text-body-secondary"><fa-icon [icon]="['far', 'calendar-plus']" a11yRole="presentation"></fa-icon></dt>
+        <dd class="flex-fill">
           {{'show-event.add-to-calendar' | translate}} &nbsp;
           <a target="_blank" rel="noopener" href="/api/v2/public/event/{{event.shortName}}/calendar/{{translate.currentLang}}?type=google">Google</a>
           &nbsp;&ndash;&nbsp;
           <a target="_blank" rel="noopener" href="/api/v2/public/event/{{event.shortName}}/calendar/{{translate.currentLang}}">iCalendar</a>
         </dd>
-        <dt class="col-1 text-body-secondary"><fa-icon [icon]="['far', 'compass']" [title]="(isEventOnline ? 'event.location.online' : 'ticket.location') | translate"></fa-icon></dt>
-        <dd class="col-11" *ngIf="!isEventOnline">{{ event.location }}</dd>
-        <dd class="col-11" *ngIf="isEventOnline"><div class="h6"><span class="badge text-bg-secondary">{{'event.online.badge' | translate}}</span></div></dd>
-
+      </div>
+      <div class="d-flex">
+        <dt class="me-2 me-md-3 text-body-secondary"><fa-icon [icon]="['far', 'compass']" [title]="(isEventOnline ? 'event.location.online' : 'ticket.location') | translate"></fa-icon></dt>
+        <dd class="flex-fill" *ngIf="!isEventOnline"><div [innerHTML]="locationHtml"></div></dd>
+        <dd class="flex-fill" *ngIf="isEventOnline"><div class="h6"><span class="badge text-bg-secondary">{{'event.online.badge' | translate}}</span></div><div [innerHTML]="locationHtml"></div></dd>
+      </div>
     </dl>
   </div>
 </div>

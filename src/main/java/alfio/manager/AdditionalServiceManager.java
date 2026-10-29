@@ -17,6 +17,7 @@
 package alfio.manager;
 
 import alfio.controller.form.AdditionalServiceLinkForm;
+import alfio.manager.AdditionalServiceManager.MappedRequestedService;
 import alfio.manager.support.reservation.NotEnoughItemsException;
 import alfio.manager.support.reservation.ReservationCostCalculator;
 import alfio.model.*;
@@ -252,7 +253,16 @@ public class AdditionalServiceManager {
                                     PromoCodeDiscount discount,
                                     String reservationId) {
         Validate.isTrue(quantity > 0);
-        AdditionalServicePriceContainer pc = AdditionalServicePriceContainer.from(amount, as, event, discount);
+        PromoCodeDiscount serviceDiscount = discount;
+        if (discount != null
+            && as.supplementPolicy() != null
+            && as.supplementPolicy().isMandatory()
+            && as.supplementPolicy() != AdditionalService.SupplementPolicy.MANDATORY_ONE_FOR_TICKET
+                && ticketRepository.findTicketsInReservation(reservationId).stream()
+                .anyMatch(ticket -> ticket.getFinalPriceCts() > 0)) {
+            serviceDiscount = null;
+        }
+        AdditionalServicePriceContainer pc = AdditionalServicePriceContainer.from(amount, as, event, serviceDiscount);
         var currencyCode = pc.getCurrencyCode();
         String queryTemplate;
         var batchReserveParameters = new ArrayList<MapSqlParameterSource>();
@@ -468,6 +478,17 @@ public class AdditionalServiceManager {
         // this way only ticket costs will be included in the percentage calculation
         handleMandatoryPercentage(MANDATORY_PERCENTAGE_FOR_TICKET, event, reservationId, discount, allAdditionalItems);
 
+        // handle MANDATORY_FIXED_AMOUNT_PER_RESERVATION: apply fixed amount once per
+        // reservation
+        if (allAdditionalItems.containsKey(MANDATORY_FIXED_AMOUNT_PER_RESERVATION)) {
+            allAdditionalItems.get(MANDATORY_FIXED_AMOUNT_PER_RESERVATION).forEach(mrs -> {
+                // Use srcPriceCts as the fixed amount in cents
+                int amountCts = mrs.additionalService.srcPriceCts() != null ? mrs.additionalService.srcPriceCts() : 0;
+                BigDecimal amount = centsToUnit(amountCts, event.getCurrency());
+                bookAdditionalServiceItems(1, amount, mrs.additionalService, event, discount, reservationId);
+            });
+        }
+
         // then apply all non-mandatory (i.e. user-selected)
         var nonMandatoryPolicies = AdditionalService.SupplementPolicy.userSelected();
         nonMandatoryPolicies.stream()
@@ -521,10 +542,21 @@ public class AdditionalServiceManager {
         if (allMapped.containsKey(supplementPolicy)) {
             final TotalPrice reservationPrice = reservationCostCalculator.totalReservationCostWithVAT(reservationId).getKey();
             allMapped.get(supplementPolicy).forEach(mrs -> {
-                int basePrice = reservationPrice.getPriceWithVAT();
+                int basePrice;
                 var vatStatus = event.getVatStatus();
-                if (PriceContainer.VatStatus.isVatNotIncluded(vatStatus)) {
-                    basePrice -= reservationPrice.getVAT();
+                if (supplementPolicy == MANDATORY_PERCENTAGE_FOR_TICKET) {
+                    // base is the sum of ticket final prices (post-discount) only
+                    var tickets = ticketRepository.findTicketsInReservation(reservationId);
+                    basePrice = tickets.stream()
+                            .mapToInt(t -> MonetaryUtil.unitToCents(
+                                    alfio.model.decorator.TicketPriceContainer.from(t, null, event.getVat(), event.getVatStatus(), discount).getFinalPrice(),
+                                    reservationPrice.getCurrencyCode()))
+                            .sum();
+                } else {
+                    basePrice = reservationPrice.getPriceWithVAT();
+                    if (PriceContainer.VatStatus.isVatNotIncluded(vatStatus)) {
+                        basePrice -= reservationPrice.getVAT();
+                    }
                 }
                 var percentage = new BigDecimal(String.valueOf(mrs.additionalService.srcPriceCts())).divide(HUNDRED, HALF_UP);
                 int amountCts = adjustUsingMinMaxPrice(calcPercentage(basePrice, percentage, BigDecimal::intValueExact), mrs.additionalService);

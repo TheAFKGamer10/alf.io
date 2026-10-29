@@ -439,7 +439,7 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr  ng-repeat="attendee in ticketInfo.attendees">
+                                    <tr ng-repeat="attendee in ticketInfo.attendees" ng-class="($ctrl.paymentInfo && $ctrl.paymentInfo.paymentInformation && $ctrl.paymentInfo.paymentInformation.refundedAmount && $ctrl.paymentInfo.paymentInformation.refundedAmount != '0') ? 'alert-danger' : ''">
                                         <td><div class="form-control-static">{{$index + 1}}</div></td>
                                         <td>
                                             <input type="text" ng-if="ticketInfo.updateAttendees" class="form-control" id="attendee-{{$index}}-firstName" required name="attendee-{{$index}}-first" ng-model="attendee.firstName">
@@ -606,7 +606,13 @@
                         <tr ng-repeat="audit in $ctrl.audit">
                             <td ng-bind="audit.eventType"></td>
                             <td ng-bind="audit.eventTime|formatDate"></td>
-                            <td ng-if="audit.username"><abbr title="{{audit.firstName}} {{audit.lastName}} {{audit.email}}">{{audit.username}}</abbr></td>
+                            <td ng-if="audit.username">
+                                <span ng-if="audit.description">
+                                    <abbr ng-attr-title="{{$ctrl.revealMap[$index] ? audit.username : (audit.username ? '••••••' + (audit.username | limitTo:6 : (audit.username.length-6)) : '')}}">{{audit.description || audit.username}}</abbr>
+                                    <a href="#" ng-click="$event.preventDefault(); $ctrl.revealMap[$index] = !$ctrl.revealMap[$index]" class="ml-2">{{$ctrl.revealMap && $ctrl.revealMap[$index] ? 'Hide' : 'Reveal'}}</a>
+                                </span>
+                                <span ng-if="!audit.description"><abbr title="{{audit.firstName}} {{audit.lastName}} {{audit.email}}">{{audit.username}}</abbr></span>
+                            </td>
                             <td ng-if="!audit.username">-</td>
                             <td ng-bind="audit.entityType"></td>
                             <td ng-bind="audit.entityId"></td>

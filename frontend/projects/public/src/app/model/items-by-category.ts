@@ -10,6 +10,7 @@ export class ItemsByCategory {
     waitingList: boolean;
     preSales: boolean;
     ticketCategoriesForWaitingList: TicketCategoryForWaitingList[];
+    maxTicketsPerReservation?: number;
 }
 
 export class TicketCategoryForWaitingList {

@@ -190,8 +190,7 @@ public class PassKitManager {
                         getAuxiliaryFields(ticket)
                     )
                     .backFields(
-                        new TextField("desc", "Event Description", eventDescription),
-                        new TextField("credits", "Powered by", "Alf.io, the Open Source ticket reservation System.")
+                        new TextField("desc", "Event Description", eventDescription)
                     )
             );
 

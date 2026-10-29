@@ -225,6 +225,9 @@ public class TicketApiV2Controller {
         TicketCategory ticketCategory = ticketCategoryRepository.getByIdAndActive(ticket.getCategoryId(), event.getId());
 
         boolean deskPaymentRequired = Optional.ofNullable(ticketReservation.getPaymentMethod()).orElse(PaymentProxy.STRIPE).isDeskPaymentRequired();
+        // determine whether this reservation has any refund recorded
+        var orderSummary = ticketReservationManager.orderSummaryForReservation(ticketReservation, event);
+        boolean hasRefund = StringUtils.isNotBlank(orderSummary.getRefundedAmount());
 
 
         //
@@ -234,7 +237,7 @@ public class TicketApiV2Controller {
 
 
         var messageSource = messageSourceManager.getMessageSourceFor(event);
-        var formattedDates = Formatters.getFormattedDates(event, messageSource, event.getContentLanguages());
+        var formattedDates = Formatters.getFormattedDates(validityStart, validityEnd, messageSource, event.getContentLanguages());
         //
 
 
@@ -246,8 +249,9 @@ public class TicketApiV2Controller {
             ticketReservation.getFullName(),
             configurationManager.getShortReservationID(event, ticketReservation),
             deskPaymentRequired,
+            hasRefund,
             event.getTimeZone(),
-            DatesWithTimeZoneOffset.fromEvent(event),
+            DatesWithTimeZoneOffset.fromDates(validityStart, validityEnd),
             sameDay,
             formattedDates.beginDate,
             formattedDates.beginTime,

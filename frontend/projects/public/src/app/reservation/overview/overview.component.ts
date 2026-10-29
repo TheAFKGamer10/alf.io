@@ -134,6 +134,7 @@ export class OverviewComponent implements OnInit {
       this.overviewForm = this.formBuilder.group({
         termAndConditionsAccepted: this.reservationInfo.tokenAcquired,
         privacyPolicyAccepted: this.reservationInfo.tokenAcquired,
+        waiverAccepted: this.reservationInfo.tokenAcquired,
         selectedPaymentMethod: selectedPaymentMethod,
         paymentProxy: currentPaymentProxy,
         gatewayToken: null,
@@ -301,9 +302,9 @@ export class OverviewComponent implements OnInit {
 
   get acceptedPrivacyAndTermAndConditions(): boolean {
     if (this.purchaseContext.privacyPolicyUrl) {
-      return this.overviewForm.value.privacyPolicyAccepted && this.overviewForm.value.termAndConditionsAccepted;
+      return this.overviewForm.value.privacyPolicyAccepted && this.overviewForm.value.termAndConditionsAccepted && this.overviewForm.value.waiverAccepted;
     } else {
-      return this.overviewForm.value.termAndConditionsAccepted;
+      return this.overviewForm.value.termAndConditionsAccepted && this.overviewForm.value.waiverAccepted;
     }
   }
 

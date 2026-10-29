@@ -36,6 +36,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 @AllArgsConstructor
 @Getter
 public class ReservationInfo {
@@ -107,11 +109,12 @@ public class ReservationInfo {
         private final String totalVAT;
         private final String vatPercentage;
         private final boolean notYetPaid;
+        private final String refundedAmount;
 
         public ReservationInfoOrderSummary(OrderSummary orderSummary) {
             this.summary = orderSummary.getSummary()
                 .stream()
-                .map(s -> new ReservationInfoOrderSummaryRow(s.getName(), s.getAmount(), s.getPrice(), s.getSubTotal(), s.getType(), s.getTaxPercentage()))
+                .map(s -> new ReservationInfoOrderSummaryRow(s.getName(), s.getAmount(), s.getPrice(), s.getSubTotal(), s.getType(), s.getTaxPercentage(), s.getType() == SummaryType.TICKET))
                 .toList();
             this.totalPrice = orderSummary.getTotalPrice();
             this.free = orderSummary.getFree();
@@ -121,6 +124,7 @@ public class ReservationInfo {
             this.totalVAT = orderSummary.getTotalVAT();
             this.vatPercentage = orderSummary.getVatPercentage();
             this.notYetPaid = orderSummary.getNotYetPaid();
+            this.refundedAmount = orderSummary.getRefundedAmount();
         }
     }
 
@@ -133,6 +137,8 @@ public class ReservationInfo {
         private final String subTotal;
         private final SummaryType type;
         private final String taxPercentage;
+        @JsonProperty("isTicket")
+        private final boolean isTicket;
     }
 
     @Getter

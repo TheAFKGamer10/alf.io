@@ -30,6 +30,7 @@ import alfio.model.Event;
 import alfio.model.PromoCodeDiscount;
 import alfio.model.SpecialPrice;
 import alfio.model.system.ConfigurationKeys;
+import java.math.BigDecimal;
 import alfio.repository.EventRepository;
 import alfio.repository.PromoCodeDiscountRepository;
 import alfio.repository.TicketCategoryDescriptionRepository;
@@ -150,14 +151,18 @@ public class TicketCategoryAvailabilityManager {
 
             var additionalServiceTexts = additionalServiceManager.getDescriptionsByAdditionalServiceIds(saleableAdditionalServicesIds);
 
+            // Check if all tickets are free or discounted
+            boolean allTicketsFreeOrDiscounted = saleableTicketCategories.stream().allMatch(tc -> tc.getFinalPriceCts() == 0 || tc.getSupportsDiscount());
+
             var additionalServicesRes = saleableAdditionalServices.stream().map(as -> {
                 var expiration = Formatters.getFormattedDate(event, as.getZonedExpiration(), "common.ticket-category.date-format", messageSource);
                 var inception = Formatters.getFormattedDate(event, as.getZonedInception(), "common.ticket-category.date-format", messageSource);
                 var title = additionalServiceTexts.getOrDefault(as.id(), Collections.emptyMap()).getOrDefault(AdditionalServiceText.TextType.TITLE, Collections.emptyMap());
                 var description = Formatters.applyCommonMark(additionalServiceTexts.getOrDefault(as.id(), Collections.emptyMap()).getOrDefault(AdditionalServiceText.TextType.DESCRIPTION, Collections.emptyMap()), messageSource);
+                boolean isFree = allTicketsFreeOrDiscounted ? as.getFree() : false;
                 return new AdditionalService(as.id(), as.type(), as.supplementPolicy(),
                     as.fixPrice(), as.availableItems(), as.maxQtyPerOrder(),
-                    as.getFree(), as.getFormattedFinalPrice(), as.getSupportsDiscount(), as.getDiscountedPrice(), as.getVatApplies(), as.getVatIncluded(), as.getVatPercentage().toString(),
+                    isFree, as.getFormattedFinalPrice(), as.getSupportsDiscount(), as.getDiscountedPrice(), as.getVatApplies(), as.getVatIncluded(), as.getVatPercentage().toString(),
                     as.isExpired(), as.getSaleInFuture(),
                     inception, expiration, title, description);
             }).collect(Collectors.toList());
@@ -173,7 +178,10 @@ public class TicketCategoryAvailabilityManager {
             var activeCategories = categoriesByExpiredFlag.get(false);
             var expiredCategories = configurations.get(DISPLAY_EXPIRED_CATEGORIES).getValueAsBooleanOrDefault() ? categoriesByExpiredFlag.get(true) : List.<TicketCategory>of();
 
-            return new ItemsByCategory(activeCategories, expiredCategories, additionalServicesRes, displayWaitingQueueForm, preSales, tcForWaitingList);
+            // Determine system/event max tickets per reservation and expose to the frontend
+            int maxTicketsPerReservation = configurations.get(MAX_AMOUNT_OF_TICKETS_BY_RESERVATION).getValueAsIntOrDefault(10);
+
+            return new ItemsByCategory(activeCategories, expiredCategories, additionalServicesRes, displayWaitingQueueForm, preSales, tcForWaitingList, maxTicketsPerReservation);
         });
     }
 

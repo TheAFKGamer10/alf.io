@@ -131,6 +131,16 @@ export class StripePaymentV3 implements PaymentProvider {
                 this.stripeHandler.handleCardPayment(clientSecret, this.card, paymentData).then(cardPaymentResult => {
                     let retryCount = 0;
                     let handleCheck: number;
+                    let forceCheckHandle: number;
+
+                    const clearTimers = () => {
+                        if (handleCheck) {
+                            window.clearInterval(handleCheck);
+                        }
+                        if (forceCheckHandle) {
+                            window.clearInterval(forceCheckHandle);
+                        }
+                    };
                     const checkIfPaid = () => {
                         console.log('checking reservation status...');
                         retryCount++;
@@ -138,8 +148,8 @@ export class StripePaymentV3 implements PaymentProvider {
                             this.notificationSubject.next(new PaymentStatusNotification(true, retryCount > 120));
                         }
                         this.reservationService.getPaymentStatus(this.reservation.id).subscribe(status => {
-                            if (cardPaymentResult.error || status.success) {
-                                window.clearInterval(handleCheck);
+                            if (cardPaymentResult.error || status.success || status.failure) {
+                                clearTimers();
                             }
                             if (status.success) {
                                 subscriber.next(new PaymentResult(true, status.gatewayIdOrNull));
@@ -151,6 +161,34 @@ export class StripePaymentV3 implements PaymentProvider {
                         }, err => console.log('got error while calling getStatus(). Retrying in 1s', err));
                     };
                     handleCheck = window.setInterval(checkIfPaid, 1000);
+
+                    const forceCheckIfPaid = () => {
+                        console.log('calling force-check for reservation...');
+                        this.reservationService.forcePaymentStatusCheck(this.reservation.id).subscribe(status => {
+                            // if force-check returns a redirect, forward immediately
+                            if (status.redirect) {
+                                clearTimers();
+                                window.location.href = status.redirectUrl;
+                                return;
+                            }
+
+                            if (status.success) {
+                                clearTimers();
+                                subscriber.next(new PaymentResult(true, status.gatewayIdOrNull));
+                            } else if (status.failure) {
+                                clearTimers();
+                                subscriber.error(new PaymentResult(false, null));
+                            }
+                            // otherwise keep polling
+                        }, (err: any) => console.log('got error while calling force-check. Will retry in 1.5s', err));
+                    };
+
+                    // Additionally call the force-check endpoint every 1.5s to nudge the payment provider
+                    forceCheckHandle = window.setInterval(forceCheckIfPaid, 1500);
+
+                    // Immediately run a check so we don't wait for the first interval tick
+                    checkIfPaid();
+                    forceCheckIfPaid();
                 }, err => {
                     subscriber.error(err);
                 });

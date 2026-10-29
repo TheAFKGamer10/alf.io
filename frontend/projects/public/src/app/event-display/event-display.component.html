@@ -99,35 +99,106 @@
         <h3 translate="show-event.sold-out.header"></h3>
       </div>
       <div *ngFor="let category of ticketCategories;let counter = index" formArrayName="reservation">
-        <app-item-card [currentLang]="translate.currentLang" [item]="category" [formGroupName]="''+counter" [parentFormGroup]="reservationFormItem(reservationForm, counter)" [additionalClass]="category.accessRestricted ? 'ticket-category-restricted border-warning shadow-sm ': ''">
-          <span class="item-title">
-            {{category.name}}
-          </span>
-          <div class="item-badges mb-2">
-            <span *ngIf="displayOnlineTicketTag(category)" class="badge text-bg-success">{{'event.online.badge' | translate}}</span>
-            <span class="badge text-bg-warning" [class.ms-2]="displayOnlineTicketTag(category)" *ngIf="ticketsLeftCountVisibleForCategory(category)">{{"show-event.tickets.left" | translate: {'0': category.availableTickets} }}</span>
-          </div>
-          <div class="item-price">
-            <span *ngIf="category.free" translate="common.free"></span>
-            <span *ngIf="!category.free">
-              <app-price-tag [purchaseContext]="event" [formattedPrice]="category.formattedFinalPrice" [showTaxDetails]="category.displayTaxInformation" [discountedPrice]="category.formattedDiscountedPrice" [showDiscount]="category.hasDiscount"></app-price-tag>
+        <div *ngIf="!category.name?.startsWith('Fast Pass:')" id="ticket-category-{{ category.id }}">
+          <app-item-card [currentLang]="translate.currentLang" [item]="category" [formGroupName]="''+counter" [parentFormGroup]="reservationFormItem(reservationForm, counter)" [additionalClass]="category.accessRestricted ? 'ticket-category-restricted border-warning shadow-sm ': ''">
+            <span class="item-title">
+              {{category.name}}
             </span>
-          </div>
-          <div class="item-qty-selector">
-              <app-ticket-quantity-selector [parentGroup]="reservationFormItem(reservationForm, counter)"
-                [category]="category"
-                [quantityRange]="ticketCategoryAmount[category.id]"
-                (valueChange)="selectionChange()"
-                (refreshCommand)="handleRefreshCommand()"
-                [refreshInProgress]="refreshInProgress"></app-ticket-quantity-selector>
-          </div>
-          @if (!waitingList && !category.saleableAndLimitNotReached && category.containsPendingTickets) {
-              <div class="item-info border-top pt-2">
-                  <fa-icon [icon]="['fas', 'info-circle']" class="text-primary"></fa-icon>
-                  {{ 'show-event.all-tickets-reserved.info' | translate }}
+            <div class="item-badges mb-2">
+              <span *ngIf="displayOnlineTicketTag(category)" class="badge text-bg-success">{{'event.online.badge' | translate}}</span>
+              <span class="badge text-bg-warning" [class.ms-2]="displayOnlineTicketTag(category)" *ngIf="ticketsLeftCountVisibleForCategory(category)">{{"show-event.tickets.left" | translate: {'0': category.availableTickets} }}</span>
+            </div>
+            <div class="item-price">
+              <span *ngIf="category.free" translate="common.free"></span>
+              <span *ngIf="!category.free">
+                <app-price-tag [purchaseContext]="event" [formattedPrice]="category.formattedFinalPrice" [showTaxDetails]="category.displayTaxInformation" [discountedPrice]="category.formattedDiscountedPrice" [showDiscount]="category.hasDiscount"></app-price-tag>
+              </span>
+            </div>
+            <div class="item-qty-selector">
+                <app-ticket-quantity-selector [parentGroup]="reservationFormItem(reservationForm, counter)"
+                  [category]="category"
+                  [quantityRange]="ticketCategoryAmount[category.id]"
+                  (valueChange)="selectionChange()"
+                  (refreshCommand)="handleRefreshCommand()"
+                  [refreshInProgress]="refreshInProgress">
+                </app-ticket-quantity-selector>
+                <div *ngIf="(category.hasDiscount && reservationFormItem(reservationForm, counter).get('amount').value > 0) && eventCode && (discountedRemaining?.[category.id] ?? 0) > 0" class="text-muted small mt-1">
+                  {{ "show-event.promo-code.discounted-remaining" | translate : { "0": discountedRemaining[category.id], } }}
+                </div>
+            </div>
+            @if (!waitingList && !category.saleableAndLimitNotReached && category.containsPendingTickets) {
+                <div class="item-info border-top pt-2">
+                    <fa-icon [icon]="['fas', 'info-circle']" class="text-primary"></fa-icon>
+                    {{ 'show-event.all-tickets-reserved.info' | translate }}
+                </div>
+            }
+          </app-item-card>
+        </div>
+      </div>
+      <!-- Collapsible summary for Fast Pass tickets (reduces clutter) - placed below main categories -->
+      <div *ngIf="hasFastPass">
+        <details #fpDetails class="mb-3 fast-pass-details card mt-4">
+          <summary class="fast-pass-summary" role="button" [attr.aria-expanded]="fpDetails.open">
+            <div>
+              <!-- Match the tickets H2 visually -->
+              <h2 class="fast-pass-title">
+                {{ "show-event.fast-pass" | translate }}
+                <span class="badge text-bg-success s-2 fast-pass-count">{{ "show-event.fast-pass.times-available" | translate }}</span>
+              </h2>
+              <div class="card-text pt-2">
+                <div class="markdown-content mt-2"> {{ "show-event.fast-pass.description" | translate }} </div>
               </div>
-          }
-        </app-item-card>
+            </div>
+
+            <!-- Chevron on the far right to indicate expandable state -->
+            <fa-icon class="fast-pass-toggle" [icon]="['fas', 'angle-down']" size="lg" a11yRole="presentation"></fa-icon>
+          </summary>
+          <div class="mt-2 fast-pass-list">
+            <ng-container *ngFor="let category of ticketCategories;let counter = index">
+              <div *ngIf="category.name?.startsWith('Fast Pass:')" formArrayName="reservation" id="ticket-category-{{ category.id }}">
+                <app-item-card [currentLang]="translate.currentLang" [item]="category" [formGroupName]="'' + counter" [parentFormGroup]="reservationFormItem(reservationForm, counter)" [additionalClass]="category.accessRestricted ? 'ticket-category-restricted border-warning shadow-sm ' : ''">
+                  <span class="item-title">{{ category.name }}</span>
+                  <div class="item-badges mb-2">
+                    <span *ngIf="displayOnlineTicketTag(category)" class="badge text-bg-success">{{ "event.online.badge" | translate }}</span>
+                    <span class="badge text-bg-warning" [class.ms-2]="displayOnlineTicketTag(category)" *ngIf="ticketsLeftCountVisibleForCategory(category)">{{ "show-event.tickets.left" | translate : { "0": category.availableTickets, } }}</span>
+                  </div>
+                  <div class="item-price">
+                    <span *ngIf="category.free" translate="common.free"></span>
+                    <span *ngIf="!category.free">
+                      <app-price-tag
+                        [purchaseContext]="event"
+                        [formattedPrice]="category.formattedFinalPrice"
+                        [showTaxDetails]="category.displayTaxInformation"
+                        [discountedPrice]="category.formattedDiscountedPrice"
+                        [showDiscount]="category.hasDiscount"
+                      ></app-price-tag>
+                    </span>
+                  </div>
+                  <div class="item-qty-selector">
+                    <app-ticket-quantity-selector
+                      [parentGroup]="reservationFormItem(reservationForm, counter)"
+                      [category]="category"
+                      [quantityRange]="ticketCategoryAmount[category.id]"
+                      (valueChange)="selectionChange()"
+                      (refreshCommand)="handleRefreshCommand()"
+                      [refreshInProgress]="refreshInProgress"
+                    ></app-ticket-quantity-selector>
+                    <div *ngIf="category.hasDiscount && eventCode && (discountedRemaining?.[category.id] ?? 0) > 0" class="text-muted small mt-1">
+                      {{ "show-event.promo-code.discounted-remaining" | translate : { "0": discountedRemaining[category.id], } }}
+                    </div>
+                    <span>{{category | json}}</span>
+                  </div>
+                  @if (!waitingList && !category.saleableAndLimitNotReached && category.containsPendingTickets) {
+                    <div class="item-info border-top pt-2">
+                        <fa-icon [icon]="['fas', 'info-circle']" class="text-primary"></fa-icon>
+                        {{ "show-event.all-tickets-reserved.info" | translate }}
+                    </div>
+                  }
+                </app-item-card>
+              </div>
+            </ng-container>
+          </div>
+        </details>
       </div>
 
       <div class="mt-4 text-body-secondary" *ngIf="expiredCategories.length > 0">
@@ -185,7 +256,7 @@
       </div>
 
 
-      <div *ngIf="event.promotionsConfiguration.hasAccessPromotions" [ngClass]="{'alert alert-info': displayPromoCodeForm}" class="mt-4">
+      <div *ngIf="event.promotionsConfiguration.hasAccessPromotions" [ngClass]="{'alert alert-info': displayPromoCodeForm}" class="my-4">
         <div class="d-flex justify-content-center justify-content-md-end" *ngIf="!displayPromoCodeForm && eventCode == null">
           <button type="button" class="btn btn-link" (click)="togglePromoCodeVisible()">
             <fa-icon [icon]="event.promotionsConfiguration.usePartnerCode ? ['far', 'handshake'] : ['fas', 'gift']" a11yRole="presentation"></fa-icon>{{' '}}

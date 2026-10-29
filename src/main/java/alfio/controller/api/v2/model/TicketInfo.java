@@ -36,6 +36,7 @@ public class TicketInfo implements DateValidity {
     private final String reservationId;
 
     private final boolean deskPaymentRequired;
+    private final boolean refunded;
 
     //date related
     private final String timeZone;

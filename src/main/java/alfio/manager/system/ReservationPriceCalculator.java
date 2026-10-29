@@ -74,12 +74,39 @@ public class ReservationPriceCalculator implements PriceContainer {
             if (discount.getDiscountType() == PromoCodeDiscount.DiscountType.FIXED_AMOUNT_RESERVATION) {
                 return MonetaryUtil.centsToUnit(discount.getDiscountAmount() + subscriptionDiscount, reservation.getCurrencyCode());
             }
-            int ticketDiscount = tickets.stream()
-                .mapToInt(t -> MonetaryUtil.unitToCents(TicketPriceContainer.from(t, reservation.getVatStatus(), reservation.getVatPercentageOrZero(), purchaseContext.getVatStatus(), discount).getAppliedDiscount(), reservation.getCurrencyCode()))
-                .sum();
-            return MonetaryUtil.centsToUnit(ticketDiscount +
-                    additionalServiceItems.stream().mapToInt(AdditionalServiceItem::getDiscountCts).sum() +
-                    subscriptions.stream().mapToInt(Subscription::getDiscountCts).sum() + subscriptionDiscount, reservation.getCurrencyCode());
+            // Allocate discounts only to the most expensive eligible tickets up to promo.maxUsage
+            var currencyCode = reservation.getCurrencyCode();
+            var pcs = tickets.stream()
+                .map(t -> TicketPriceContainer.from(t, reservation.getVatStatus(), reservation.getVatPercentageOrZero(), purchaseContext.getVatStatus(), discount))
+                .collect(java.util.stream.Collectors.toList());
+
+            // filter eligible tickets: ticket-level discount applicable and not an ACCESS code
+            var eligible = pcs.stream()
+                .filter(pc -> pc.getDiscount().isPresent() && pc.getDiscount().get().getCodeType() != PromoCodeDiscount.CodeType.ACCESS)
+                .collect(java.util.stream.Collectors.toList());
+
+            // sort by ticket source price (descending) so most expensive tickets get discounted first
+            eligible.sort((a, b) -> Integer.compare(b.getSummarySrcPriceCts(), a.getSummarySrcPriceCts()));
+
+            int maxUsage = discount.getMaxUsage() == null ? eligible.size() : Math.min(eligible.size(), discount.getMaxUsage());
+
+            int ticketDiscountCts = 0;
+            for (int i = 0; i < maxUsage; i++) {
+                var pc = eligible.get(i);
+                ticketDiscountCts += MonetaryUtil.unitToCents(pc.getAppliedDiscount(), currencyCode);
+            }
+
+            int additionalServicesDiscountCts = additionalServiceItems.stream().mapToInt(AdditionalServiceItem::getDiscountCts).sum();
+            int subscriptionsDiscountCts = subscriptions.stream().mapToInt(Subscription::getDiscountCts).sum();
+
+            // Check if all tickets are free or discounted
+            boolean allTicketsFreeOrDiscounted = tickets.stream().allMatch(t -> t.getFinalPriceCts() == 0);
+
+            if (allTicketsFreeOrDiscounted) {
+                additionalServicesDiscountCts = additionalServiceItems.stream().mapToInt(asi -> asi.getSrcPriceCts()).sum();
+            }
+
+            return MonetaryUtil.centsToUnit(ticketDiscountCts + additionalServicesDiscountCts + subscriptionsDiscountCts + subscriptionDiscount, reservation.getCurrencyCode());
         }
         return MonetaryUtil.centsToUnit(subscriptionDiscount, reservation.getCurrencyCode());
     }

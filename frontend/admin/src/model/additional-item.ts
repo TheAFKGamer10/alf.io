@@ -4,6 +4,7 @@ export type AdditionalItemType = 'DONATION' | 'SUPPLEMENT';
 export type AdditionalItemTaxType = 'INHERITED' | 'NONE' | 'CUSTOM_INCLUDED' | 'CUSTOM_EXCLUDED';
 export type SupplementPolicy =
     'MANDATORY_ONE_FOR_TICKET' |
+    'MANDATORY_FIXED_AMOUNT_PER_RESERVATION' |
     'MANDATORY_PERCENTAGE_RESERVATION' |
     'MANDATORY_PERCENTAGE_FOR_TICKET' |
     'OPTIONAL_UNLIMITED_AMOUNT' |
@@ -13,6 +14,7 @@ export type SupplementPolicy =
 // temporary until we get the i18n translations
 export const supplementPolicyDescriptions: {[key: string]: string} = {
     'MANDATORY_ONE_FOR_TICKET': 'Mandatory fixed fee, 1 per ticket',
+    'MANDATORY_FIXED_AMOUNT_PER_RESERVATION': 'Mandatory fixed fee per reservation (e.g., $0.30 per order, not per ticket)',
     'MANDATORY_PERCENTAGE_RESERVATION': 'Mandatory percentage fee, entire reservation (including user-selected Additional Items, if any)',
     'MANDATORY_PERCENTAGE_FOR_TICKET': 'Mandatory percentage fee for tickets',
     'OPTIONAL_UNLIMITED_AMOUNT': 'User-selected item',
@@ -22,6 +24,7 @@ export const supplementPolicyDescriptions: {[key: string]: string} = {
 
 export function isMandatory(supplementPolicy: SupplementPolicy): boolean {
     return supplementPolicy === "MANDATORY_ONE_FOR_TICKET"
+        || supplementPolicy === 'MANDATORY_FIXED_AMOUNT_PER_RESERVATION'
         || supplementPolicy === 'MANDATORY_PERCENTAGE_FOR_TICKET'
         || supplementPolicy === 'MANDATORY_PERCENTAGE_RESERVATION';
 }

@@ -1089,10 +1089,10 @@
                     }
                 };
                 if (files.length <= 0) {
-                    deferred.reject('Your image was not uploaded correctly.Please upload the image again');
+                    deferred.reject('Your image was not uploaded correctly. Please upload the image again');
                 } else if (!((files[0].type === 'image/png') || (files[0].type === 'image/jpeg') || (files[0].type === 'image/gif') || (files[0].type === 'image/svg+xml'))) {
                     deferred.reject('Only PNG, JPG, GIF or SVG image files are accepted');
-                } else if (files[0].size > (1024 * 1024)) {
+                } else if (files[0].size > (5 * 1024 * 1024)) {
                     deferred.reject('Image is too big');
                 } else {
                     reader.readAsDataURL(files[0]);

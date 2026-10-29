@@ -119,14 +119,14 @@ public class EventTicketClass implements WalletEntity {
                                             mapper.createArrayNode()
                                                 .add(mapper.createObjectNode().put("fieldPath", "class.dateTime.end"))))))))
                 )));
-        object.set("linksModuleData",
-            mapper.createObjectNode().set("uris",
-                mapper.createArrayNode()
-                    .add(mapper.createObjectNode()
-                        .put("uri", "https://alf.io")
-                        .put("description", "Powered by Alf.io, the Open Source ticket reservation system.")
-                        .put("id", "alfio")))
-        );
+        // object.set("linksModuleData",
+        //     mapper.createObjectNode().set("uris",
+        //         mapper.createArrayNode()
+        //             .add(mapper.createObjectNode()
+        //                 .put("uri", "https://alf.io")
+        //                 .put("description", "Powered by Alf.io, the Open Source ticket reservation system.")
+        //                 .put("id", "alfio")))
+        // );
         object.set("messages", mapper.createArrayNode()
             .add(mapper.createObjectNode()
                 .put("header", "Event Description")

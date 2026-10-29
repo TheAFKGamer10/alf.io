@@ -7,6 +7,9 @@
     <main>
       <hr>
       <div class="ticket">
+        <div *ngIf="ticketInfo.refunded" class="alert alert-danger">
+          <strong>Warning:</strong> This reservation has been refunded. All tickets have been voided for scanning.
+        </div>
         <div class="row">
           <div class="col-md-8 col-12">
             <app-event-summary [event]="event" [dateValidityProvider]="ticketInfo"></app-event-summary>
@@ -77,10 +80,5 @@
 
       </div>
     </main>
-    <footer>
-      <div class="text-center mt-5">
-        <a href="https://alf.io" [attr.title]="'alfio.credits' | translate" target="_blank" rel="noreferrer noopener" translate="alfio.credits"></a>
-      </div>
-    </footer>
   </div>
 </div>

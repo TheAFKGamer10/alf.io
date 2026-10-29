@@ -15,9 +15,20 @@
         <div class="card mt-5" [ngClass]="{'border-left-warning': !ticket.assigned}">
             <div class="card-body">
               <div class="attendees-data d-md-flex w-100 justify-content-between">
-                <h3 class="card-title flex-md-shrink-1"><fa-icon [icon]="['fas', ticket.assigned ? 'check' : 'exclamation-triangle']" size="xs" [classes]="[ ticket.assigned ? 'text-success' : 'text-warning', 'd-none', 'd-md-inline']" a11yRole="presentation"></fa-icon> <small class="ms-2 text-body-secondary">{{categoryName}}</small></h3>
-                <h3 class="card-title flex-md-shrink-0" *ngIf="ticket.assigned">{{ticket.fullName}}</h3>
+                <h3 class="card-title flex-md-shrink-1">
+                  <div class="d-flex align-items-start">
+                    <fa-icon [icon]="['fas', ticket.assigned ? 'check' : 'exclamation-triangle']" size="xs" [classes]="[ticket.assigned ? 'text-success' : 'text-warning']" a11yRole="presentation" style="margin-right: 0.5rem"></fa-icon>
+                    <div class="ms-2 d-flex flex-column">
+                      <span class="text-body" *ngIf="ticket.assigned">{{ ticket.fullName }}</span>
+                      <small class="text-body-secondary">{{ categoryName }}</small>
+                    </div>
+                  </div>
+                </h3>
                 <h3 class="card-title text-body-secondary" *ngIf="!ticket.assigned">{{'reservation-page-complete.ticket-not-assigned' | translate }}</h3>
+                <div *ngIf="ticket.assigned" class="qr-code-container">
+                  <img [src]="'/api/v2/public/event/' + event.shortName + '/ticket/' + ticket.uuid + '/code.png'" alt="QR Code for check-in" style="aspect-ratio: 1 / 1; width: 100%" />
+                  <div class="small text-muted mt-2" translate="reservation-page-complete.qr-code-instructions"></div>
+                </div>
               </div>
 
               <hr *ngIf="!ticketFormVisible">
@@ -64,10 +75,5 @@
             </div>
           </div>
     </main>
-    <footer>
-      <div class="text-center mt-5">
-        <a href="https://alf.io" [attr.title]="'alfio.credits' | translate" target="_blank" rel="noreferrer noopener" translate="alfio.credits"></a>
-      </div>
-    </footer>
   </div>
 </div>

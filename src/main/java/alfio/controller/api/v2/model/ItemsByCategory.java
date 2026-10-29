@@ -24,7 +24,8 @@ public record ItemsByCategory(
     List<AdditionalService> additionalServices,
     boolean waitingList,
     boolean preSales,
-    List<TicketCategoryForWaitingList> ticketCategoriesForWaitingList
+    List<TicketCategoryForWaitingList> ticketCategoriesForWaitingList,
+    int maxTicketsPerReservation
 ) {
 
     public record TicketCategoryForWaitingList(int id, String name) {

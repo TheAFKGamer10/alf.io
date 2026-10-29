@@ -49,4 +49,8 @@ public class SummaryRow {
     public boolean getTaxDetail() {
         return type == SummaryType.TAX_DETAIL;
     }
+
+    public boolean isTicket() {
+        return type == SummaryType.TICKET;
+    }
 }

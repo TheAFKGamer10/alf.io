@@ -1,7 +1,6 @@
 {{#i18n}}email.hello [{{ticketReservation.fullName}}]{{/i18n}}
 
-{{^orderSummary.waitingForPayment}}{{#i18n}}email-confirmation.completed [{{event.displayName}}] [{{reservationUrl}}]{{/i18n}}{{/orderSummary.waitingForPayment}}
-{{#orderSummary.waitingForPayment}}{{#i18n}}email-confirmation.waiting-for-payment [{{event.displayName}}] [{{reservationUrl}}]{{/i18n}}{{/orderSummary.waitingForPayment}}
+{{^orderSummary.waitingForPayment}}{{#i18n}}email-confirmation.completed [{{event.displayName}}] [{{reservationUrl}}]{{/i18n}}{{/orderSummary.waitingForPayment}}{{#orderSummary.waitingForPayment}}{{#i18n}}email-confirmation.waiting-for-payment [{{event.displayName}}] [{{reservationUrl}}]{{/i18n}}{{/orderSummary.waitingForPayment}}
 
 {{#render-markdown}}{{custom-header-text}}.text{{/render-markdown}}
 
@@ -26,12 +25,11 @@
 
 {{#i18n}}email.event-reminder-location{{/i18n}}
 
- {{event.location}} 
+ {{#event.locationPlainText}}{{event.locationPlainText}}{{/event.locationPlainText}}{{^event.locationPlainText}}{{event.location}}{{/event.locationPlainText}}
 
 {{#i18n}}email.event-reminder-date{{/i18n}}
 
-{{#event.sameDay}}{{#i18n}}event-days.same-day [{{#format-date}}{{event.begin}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{event.begin}} HH:mm{{/format-date}}] [{{#format-date}}{{event.end}} HH:mm (z){{/format-date}}] {{/i18n}}{{/event.sameDay}}
-{{^event.sameDay}}{{#i18n}}event-days.not-same-day [{{#format-date}}{{event.begin}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{event.begin}} HH:mm{{/format-date}}]{{/i18n}} - {{#i18n}}event-days.not-same-day [{{#format-date}}{{event.end}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{event.end}} HH:mm (z){{/format-date}}]{{/i18n}} {{/event.sameDay}}
+ {{#event.sameDay}}{{#i18n}}event-days.same-day [{{#format-date}}{{event.begin}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{event.begin}} h:mm a{{/format-date}}] [{{#format-date}}{{event.end}} h:mm a (z){{/format-date}}] {{/i18n}}{{/event.sameDay}}{{^event.sameDay}}{{#i18n}}event-days.not-same-day [{{#format-date}}{{event.begin}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{event.begin}} h:mm a{{/format-date}}]{{/i18n}} - {{#i18n}}event-days.not-same-day [{{#format-date}}{{event.end}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{event.end}} h:mm a (z){{/format-date}}]{{/i18n}} {{/event.sameDay}}
 {{#displaySubscriptionUsage}}
 
 ########################
@@ -46,6 +44,6 @@
 {{/displaySubscriptionUsage}}
 {{#render-markdown}}{{custom-footer-text}}.text{{/render-markdown}}
 {{#i18n}}email.kind-regards{{/i18n}}
-
 {{organization.name}} <{{organization.email}}>
+
 {{#hasMailFooter}}{{#render-markdown}}{{mailFooter}}.text{{/render-markdown}}{{/hasMailFooter}}

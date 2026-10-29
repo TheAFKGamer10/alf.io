@@ -8,18 +8,15 @@
 
 {{#i18n}}email.event-reminder-location{{/i18n}}
 
- {{event.location}}
+ {{#event.locationPlainText}}{{event.locationPlainText}}{{/event.locationPlainText}}{{^event.locationPlainText}}{{event.location}}{{/event.locationPlainText}}
 
 {{#i18n}}email.event-reminder-date{{/i18n}}
 
-{{#event.sameDay}}{{#i18n}}event-days.same-day [{{#format-date}}{{validityStart}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{validityStart}} HH:mm{{/format-date}}] [{{#format-date}}{{validityEnd}} HH:mm (z){{/format-date}}] {{/i18n}}{{/event.sameDay}}
-{{^event.sameDay}}{{#i18n}}event-days.not-same-day [{{#format-date}}{{validityStart}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{validityStart}} HH:mm{{/format-date}}]{{/i18n}} - {{#i18n}}event-days.not-same-day [{{#format-date}}{{validityEnd}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{validityEnd}} HH:mm (z){{/format-date}}]{{/i18n}} {{/event.sameDay}}
+ {{#validitySameDay}}{{#format-date}}{{validityStart}} EEEE, MMMM d, yyyy{{/format-date}} from {{#format-date}}{{validityStart}} h:mm a{{/format-date}} to {{#format-date}}{{validityEnd}} h:mm a (z){{/format-date}}{{/validitySameDay}}{{^validitySameDay}}{{#format-date}}{{validityStart}} EEEE, MMMM d, yyyy{{/format-date}} at {{#format-date}}{{validityStart}} h:mm a{{/format-date}} - {{#format-date}}{{validityEnd}} EEEE, MMMM d, yyyy{{/format-date}} at {{#format-date}}{{validityEnd}} h:mm a (z){{/format-date}} {{/validitySameDay}}
 
 {{#i18n}}email-ticket.add-to-calendar [{{googleCalendarUrl}}]{{/i18n}}
 {{#render-markdown}}{{custom-footer-text}}.text{{/render-markdown}}
 {{#i18n}}email.kind-regards{{/i18n}}
-
 {{organization.name}} <{{organization.email}}>
-{{#hasMailFooter}}{{#render-markdown}}{{mailFooter}}.text{{/render-markdown}}{{/hasMailFooter}}
 
-{{#i18n}}alfio.credits{{/i18n}}
+{{#hasMailFooter}}{{#render-markdown}}{{mailFooter}}.text{{/render-markdown}}{{/hasMailFooter}}

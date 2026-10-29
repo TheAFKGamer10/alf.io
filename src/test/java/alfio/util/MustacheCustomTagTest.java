@@ -89,6 +89,13 @@ public class MustacheCustomTagTest {
     }
 
     @Test
+    public void testTextMarkdownAndHtml() {
+        assertEquals("Hello **world**", MustacheCustomTag.renderToTextCommonmark("<p>Hello <strong>world</strong></p>"));
+        assertEquals("Here is a link (https://example.com)", MustacheCustomTag.renderToTextCommonmark("<p>Here is a <a href=\"https://example.com\">link</a></p>"));
+        assertEquals("Plain **bold** and [a link](https://example.com) text", MustacheCustomTag.renderToTextCommonmark("Plain **bold** and [a link](https://example.com) text"));
+    }
+
+    @Test
     public void acceptOnlyHttpOrHttpsProtocols() {
         assertEquals("<p><a href=\"http://google.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">google</a></p>\n", MustacheCustomTag.renderToHtmlCommonmarkEscaped("[google](http://google.com)"));
         assertEquals("<p><a href=\"https://google.com\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">google</a></p>\n", MustacheCustomTag.renderToHtmlCommonmarkEscaped("[google](https://google.com)"));

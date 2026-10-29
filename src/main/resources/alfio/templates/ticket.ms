@@ -41,28 +41,29 @@
                     <table>
                         <tr>
                             <td style="width:180px">{{#i18n}}ticket.date-time{{/i18n}}</td>
-                            <td>			{{#event.sameDay}}
-                                {{#i18n}}event-days.same-day
-                                    [{{#format-date}}{{validityStart}} EEE dd MMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}]
-                                    [{{#format-date}}{{validityStart}} HH:mm{{/format-date}}]
-                                    [{{#format-date}}{{validityEnd}} HH:mm (z){{/format-date}}]
-                                {{/i18n}}
-                            {{/event.sameDay}}
-                                {{^event.sameDay}}
-                                    {{#i18n}}event-days.not-same-day
-                                        [{{#format-date}}{{validityStart}} EE dd MMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}]
-                                        [{{#format-date}}{{validityStart}} HH:mm{{/format-date}}]
-                                    {{/i18n}}
-                                    -
-                                    {{#i18n}}event-days.not-same-day
-                                        [{{#format-date}}{{validityEnd}} EE dd MMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}]
-                                        [{{#format-date}}{{validityEnd}} HH:mm (z){{/format-date}}]
-                                    {{/i18n}}
-                                {{/event.sameDay}}</td>
+							<td>			{{#validitySameDay}}
+								{{#i18n}}event-days.same-day
+									[{{#format-date}}{{validityStart}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}]
+									[{{#format-date}}{{validityStart}} h:mm a{{/format-date}}]
+									[{{#format-date}}{{validityEnd}} h:mm a (z){{/format-date}}]
+								{{/i18n}}
+							{{/validitySameDay}}
+								{{^validitySameDay}}
+									{{#i18n}}event-days.not-same-day
+										[{{#format-date}}{{validityStart}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}]
+										[{{#format-date}}{{validityStart}} h:mm a{{/format-date}}]
+									{{/i18n}}
+									-
+									{{#i18n}}event-days.not-same-day
+										[{{#format-date}}{{validityEnd}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}]
+										[{{#format-date}}{{validityEnd}} h:mm a (z){{/format-date}}]
+									{{/i18n}}
+								{{/validitySameDay}}
+							</td>
                         </tr>
                         <tr>
                             <td>{{#i18n}}ticket.location{{/i18n}}</td>
-                            <td>{{event.location}}</td>
+                            <td>{{{event.location}}}</td>
                         </tr>
                         <tr>
                             <td>{{#i18n}}ticket.organized-by{{/i18n}}</td>

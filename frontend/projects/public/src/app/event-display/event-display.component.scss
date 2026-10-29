@@ -17,3 +17,44 @@
 .text-body-secondary .btn-link {
   color: $body-secondary-color;
 }
+
+/* Fast Pass dropdown styling */
+.fast-pass-details {
+  border-radius: .5rem;
+  padding: .75rem;
+}
+
+.fast-pass-summary {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  cursor: pointer;
+  list-style: none; /* hide default marker in some browsers */
+  padding: .25rem .5rem;
+}
+
+.fast-pass-title {
+  flex: 1 1 auto;
+}
+
+.fast-pass-count {
+  color: $body-secondary-color;
+  margin-left: .5rem;
+  font-size: 0.95rem;
+}
+
+.fast-pass-toggle {
+  margin-left: auto;
+  transition: transform .2s ease-in-out;
+  font-size: 1.4rem; /* larger chevron */
+  color: $body-secondary-color;
+  line-height: 1;
+}
+
+.fast-pass-details[open] .fast-pass-toggle {
+  transform: rotate(180deg);
+}
+
+.fast-pass-list {
+  padding: .5rem 0 0 0;
+}

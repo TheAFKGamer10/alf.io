@@ -2,7 +2,7 @@
   <label class="sr-only" [for]="'additional-'+additionalService.id+'-qty'">{{ (additionalService.fixPrice ? 'show-event.category.quantity' : 'show-event.additional.custom-amount') | translate }}</label>
   @if (additionalService.fixPrice && additionalService.supplementPolicy === 'MANDATORY_ONE_FOR_TICKET') {
     <div translate="show-event.mandatoryOneForTicket"></div>
-  } @else if (additionalService.supplementPolicy === 'MANDATORY_PERCENTAGE_FOR_TICKET' || additionalService.supplementPolicy === 'MANDATORY_PERCENTAGE_RESERVATION') {
+  } @else if (additionalService.supplementPolicy === 'MANDATORY_PERCENTAGE_FOR_TICKET' || additionalService.supplementPolicy === 'MANDATORY_PERCENTAGE_RESERVATION' || additionalService.supplementPolicy === 'MANDATORY_FIXED_AMOUNT_PER_RESERVATION') {
     <div translate="show-event.mandatoryPercentage"></div>
   } @else if (additionalService.fixPrice && additionalService.supplementPolicy === 'OPTIONAL_UNLIMITED_AMOUNT') {
     <input type="number" min="0" step="1" class="form-control" placeholder="0" autocomplete="off" formControlName="quantity" [id]="'additional-'+additionalService.id+'-qty'">

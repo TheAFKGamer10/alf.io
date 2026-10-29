@@ -587,8 +587,13 @@ public enum TemplateResource {
     }
 
     public static void fillTicketValidity(Event event, TicketCategory ticketCategory, Map<String, Object> model) {
-        model.put("validityStart", Optional.ofNullable(ticketCategory.getTicketValidityStart(event.getZoneId())).orElse(event.getBegin()));
-        model.put("validityEnd", Optional.ofNullable(ticketCategory.getTicketValidityEnd(event.getZoneId())).orElse(event.getEnd()));
+        ZonedDateTime validityStart = Optional.ofNullable(ticketCategory.getTicketValidityStart(event.getZoneId())).orElse(event.getBegin());
+        ZonedDateTime validityEnd = Optional.ofNullable(ticketCategory.getTicketValidityEnd(event.getZoneId())).orElse(event.getEnd());
+        model.put("validityStart", validityStart);
+        model.put("validityEnd", validityEnd);
+        // precompute whether validityStart and validityEnd fall on the same calendar day
+        boolean validitySameDay = validityStart.truncatedTo(java.time.temporal.ChronoUnit.DAYS).equals(validityEnd.truncatedTo(java.time.temporal.ChronoUnit.DAYS));
+        model.put("validitySameDay", validitySameDay);
     }
 
     // used by TICKET_HAS_CHANGED_OWNER

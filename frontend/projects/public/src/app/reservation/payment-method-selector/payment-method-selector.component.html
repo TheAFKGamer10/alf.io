@@ -34,7 +34,7 @@
         </div>
     }
 
-    <div class="col-12" [class.col-md-7]="verticalLayout" [class.mb-5]="!verticalLayout">
+    <div class="col-12" [class.col-md-3]="verticalLayout" [class.mb-5]="!verticalLayout">
         @if(selectedPaymentMethod) {
             <div [ngClass]="{'h-100 d-flex flex-md-column justify-content-center': verticalLayout }">
                 <app-offline-payment-proxy

@@ -156,6 +156,11 @@ public class CheckInManager {
      */
     public CheckInStatus performCheckinForOnlineEvent(Ticket ticket, EventCheckInInfo event, TicketCategory tc) {
         Validate.isTrue(EventUtil.isAccessOnline(tc, event));
+        // If a refund has been recorded for the reservation, treat the ticket as void for online check-ins as well.
+        boolean hasRefund = auditingRepository.countAuditsOfTypeForReservation(ticket.getTicketsReservationId(), Audit.EventType.REFUND) > 0;
+        if (hasRefund) {
+            return INVALID_TICKET_STATE;
+        }
         if(!tc.hasValidCheckIn(event.now(clockProvider), event.getZoneId())) {
             return INVALID_TICKET_CATEGORY_CHECK_IN_DATE;
         }
@@ -236,6 +241,14 @@ public class CheckInManager {
 
             if(t.getStatus() == TicketStatus.TO_BE_PAID) {
                 acquire(ticketIdentifier);
+            }
+
+            // If the ticket is in a cancelled/invalidated state but a refund has been recorded for the reservation,
+            // allow administrators to still perform a manual check-in by temporarily transitioning the ticket to ACQUIRED.
+            boolean hasRefund = auditingRepository.countAuditsOfTypeForReservation(t.getTicketsReservationId(), Audit.EventType.REFUND) > 0;
+            if ((t.getStatus() == TicketStatus.CANCELLED || t.getStatus() == TicketStatus.INVALIDATED) && hasRefund) {
+                // update DB directly to ACQUIRED so checkIn validation passes
+                ticketRepository.updateTicketStatusWithUUID(ticketIdentifier, TicketStatus.ACQUIRED.toString());
             }
 
             checkIn(ticketIdentifier, eventRepository.findById(t.getEventId()));
@@ -341,6 +354,12 @@ public class CheckInManager {
 
         if (ticketStatus == TicketStatus.TO_BE_PAID) {
             return new TicketAndCheckInResult(new TicketWithCategory(ticket, tc), new OnSitePaymentResult(MUST_PAY, "Must pay for ticket", MonetaryUtil.centsToUnit(ticket.getFinalPriceCts(), ticket.getCurrencyCode()), ticket.getCurrencyCode()));
+        }
+
+        // If a refund has been recorded for the reservation, treat the ticket as void for scans.
+        boolean hasRefund = auditingRepository.countAuditsOfTypeForReservation(ticket.getTicketsReservationId(), Audit.EventType.REFUND) > 0;
+        if (hasRefund) {
+            return new TicketAndCheckInResult(new TicketWithCategory(ticket, tc), new DefaultCheckInResult(INVALID_TICKET_STATE, "Ticket voided due to refund"));
         }
 
         if (ticketStatus == TicketStatus.CHECKED_IN) {

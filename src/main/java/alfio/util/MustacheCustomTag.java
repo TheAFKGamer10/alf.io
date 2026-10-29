@@ -18,6 +18,7 @@ package alfio.util;
 
 import alfio.controller.api.support.TicketHelper;
 import alfio.model.subscription.SubscriptionDescriptor;
+import ch.digitalfondue.jfiveparse.Element;
 import com.samskivert.mustache.Mustache;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -31,7 +32,6 @@ import org.commonmark.node.Text;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.AttributeProvider;
 import org.commonmark.renderer.html.HtmlRenderer;
-import org.commonmark.renderer.text.TextContentRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -75,6 +75,7 @@ public class MustacheCustomTag {
 
     private static final Pattern ARG_PATTERN = Pattern.compile("\\[(.*?)]");
     private static final String LOCALE_LABEL = "locale:";
+    private static final ch.digitalfondue.jfiveparse.Parser HTML_PARSER = new ch.digitalfondue.jfiveparse.Parser();
 
     static final Mustache.Lambda FORMAT_DATE = (frag, out) -> {
         String execution = frag.execute().trim();
@@ -88,9 +89,9 @@ public class MustacheCustomTag {
         }
         Pair<String, Optional<Locale>> p = parseParams(execution);
         if (p.getRight().isPresent()) {
-            out.write(DateTimeFormatter.ofPattern(p.getLeft(), p.getRight().get()).format(date));
+            out.write(DateTimeFormatter.ofPattern(p.getLeft(), p.getRight().get()).format(date).trim());
         } else {
-            out.write(DateTimeFormatter.ofPattern(p.getLeft()).format(date));
+            out.write(DateTimeFormatter.ofPattern(p.getLeft()).format(date).trim());
         }
     };
 
@@ -241,7 +242,6 @@ public class MustacheCustomTag {
     private static final List<Extension> COMMONMARK_EXTENSIONS = List.of(TablesExtension.create());
     private static final Parser COMMONMARK_PARSER = Parser.builder().extensions(COMMONMARK_EXTENSIONS).build();
     private static final HtmlRenderer COMMONMARK_RENDERER = HtmlRenderer.builder().extensions(COMMONMARK_EXTENSIONS).attributeProviderFactory(ctx -> new TargetBlankProvider()).build();
-    private static final TextContentRenderer COMMONMARK_TEXT_RENDERER = TextContentRenderer.builder().extensions(COMMONMARK_EXTENSIONS).build();
     private static final ThreadLocal<String> A11Y_NEW_TAB_LABEL = new ThreadLocal<>();
 
     //Open in a new window if the link contains an absolute url
@@ -313,7 +313,89 @@ public class MustacheCustomTag {
     }
 
     public static String renderToTextCommonmark(String input) {
-        Node document = COMMONMARK_PARSER.parse(input);
-        return COMMONMARK_TEXT_RENDERER.render(document);
+        return renderHtmlAsMarkdown(input);
+    }
+
+    private static String renderHtmlAsMarkdown(String input) {
+        var document = HTML_PARSER.parse(input);
+        var result = new StringBuilder();
+        appendHtmlMarkdown(document, result);
+        return result.toString().trim();
+    }
+
+    private static void appendHtmlMarkdown(ch.digitalfondue.jfiveparse.Node node, StringBuilder result) {
+        if (node instanceof ch.digitalfondue.jfiveparse.Text text) {
+            result.append(text.getData());
+            return;
+        }
+        if (node instanceof Element element) {
+            var name = element.getNodeName();
+            switch (name) {
+                case "br" -> result.append('\n');
+                case "p", "div", "section", "article", "aside", "header", "footer", "blockquote", "li", "ul", "ol", "table", "tr" -> {
+                    appendChildrenMarkdown(node, result);
+                    result.append('\n');
+                }
+                case "strong", "b" -> wrapMarkdown(node, "**", result);
+                case "em", "i" -> wrapMarkdown(node, "*", result);
+                case "a" -> appendLinkMarkdown(element, result);
+                case "code" -> result.append('`').append(node.getTextContent()).append('`');
+                case "pre" -> result.append("```").append('\n').append(node.getTextContent().trim()).append('\n').append("```");
+                case "img" -> appendImageMarkdown(element, result);
+                case "h1" -> appendHeadingMarkdown(1, node, result);
+                case "h2" -> appendHeadingMarkdown(2, node, result);
+                case "h3" -> appendHeadingMarkdown(3, node, result);
+                case "h4" -> appendHeadingMarkdown(4, node, result);
+                case "h5" -> appendHeadingMarkdown(5, node, result);
+                case "h6" -> appendHeadingMarkdown(6, node, result);
+                default -> appendChildrenMarkdown(node, result);
+            }
+            return;
+        }
+        appendChildrenMarkdown(node, result);
+    }
+
+    private static void appendChildrenMarkdown(ch.digitalfondue.jfiveparse.Node node, StringBuilder result) {
+        for (ch.digitalfondue.jfiveparse.Node child : node.getChildNodes()) {
+            appendHtmlMarkdown(child, result);
+        }
+    }
+
+    private static void wrapMarkdown(ch.digitalfondue.jfiveparse.Node node, String wrapper, StringBuilder result) {
+        result.append(wrapper);
+        appendChildrenMarkdown(node, result);
+        result.append(wrapper);
+    }
+
+    private static void appendLinkMarkdown(Element element, StringBuilder result) {
+        var text = element.getTextContent().trim();
+        var href = element.getAttribute("href");
+        result.append(text);
+        if (StringUtils.isNotBlank(href)) {
+            result.append(" (").append(href).append(")");
+        }
+    }
+
+    private static void appendImageMarkdown(Element element, StringBuilder result) {
+        var alt = StringUtils.defaultString(element.getAttribute("alt"));
+        var src = StringUtils.defaultString(element.getAttribute("src"));
+        if (StringUtils.isNotBlank(alt)) {
+            result.append(alt);
+        }
+        if (StringUtils.isNotBlank(src)) {
+            if (StringUtils.isNotBlank(alt)) {
+                result.append(" (");
+            }
+            result.append(src);
+            if (StringUtils.isNotBlank(alt)) {
+                result.append(")");
+            }
+        }
+    }
+
+    private static void appendHeadingMarkdown(int level, ch.digitalfondue.jfiveparse.Node node, StringBuilder result) {
+        result.append("#".repeat(level)).append(' ');
+        appendChildrenMarkdown(node, result);
+        result.append('\n');
     }
 }

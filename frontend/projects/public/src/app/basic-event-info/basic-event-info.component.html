@@ -7,7 +7,7 @@
     <h2 class="card-title">{{title}}</h2>
     <app-event-dates [dateValidityProvider]="event" [displayIcon]="true"></app-event-dates>
     <div class="text-body-secondary mt-1" *ngIf="!isEventOnline">
-      <fa-icon [icon]="['fas', 'map-marker-alt']"></fa-icon> &nbsp; {{event.location}}
+      <fa-icon [icon]="['fas', 'map-marker-alt']"></fa-icon> &nbsp; <span [innerHTML]="event.location"></span>
     </div>
   </div>
   <div class="card-footer border-top-0 bg-white">

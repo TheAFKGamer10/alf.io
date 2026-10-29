@@ -74,6 +74,12 @@ public record AdditionalService(@Column("id") int id,
          * Will be calculated from the total price of the tickets, excluding any additional items
          */
         MANDATORY_PERCENTAGE_FOR_TICKET(true),
+        /**
+         * Will be applied as a fixed amount per reservation (e.g., $0.30 per order, not
+         * per ticket)
+         */
+        MANDATORY_FIXED_AMOUNT_PER_RESERVATION(true),
+
         OPTIONAL_UNLIMITED_AMOUNT,
         OPTIONAL_MAX_AMOUNT_PER_TICKET {
             @Override

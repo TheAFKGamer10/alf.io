@@ -70,7 +70,7 @@ public interface AuditingRepository {
     }
 
 
-    @Query("select * from auditing_user where reservation_id = :reservationId order by event_time asc")
+    @Query("select au.*, (case when bu.user_type = 'API_KEY' then bu.description else null end) as description from auditing_user au left join ba_user bu on au.user_id = bu.id where au.reservation_id = :reservationId order by au.event_time asc")
     List<Audit> findAllForReservation(@Bind("reservationId") String reservationId);
 
     @Query("select count(*) from auditing_user where reservation_id = :reservationId and event_type = :eventType")

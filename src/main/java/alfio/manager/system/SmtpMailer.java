@@ -59,7 +59,8 @@ class SmtpMailer extends BaseMailer {
 
         var conf = configurationManager.getFor(Set.of(SMTP_FROM_EMAIL, MAIL_REPLY_TO,
             MAIL_SET_ORG_REPLY_TO, SMTP_HOST, SMTP_PORT, SMTP_PROTOCOL,
-            SMTP_USERNAME, SMTP_PASSWORD, SMTP_PROPERTIES), configurable.getConfigurationLevel());
+            SMTP_USERNAME, SMTP_PASSWORD, SMTP_PROPERTIES,
+            SMTP_MESSAGE_ID_DOMAIN, SMTP_LOCALHOST, SMTP_LOCALADDRESS, SMTP_QUITWAIT), configurable.getConfigurationLevel());
 
         MimeMessagePreparator preparator = mimeMessage -> {
 
@@ -91,7 +92,18 @@ class SmtpMailer extends BaseMailer {
             }
             
             message.getMimeMessage().saveChanges();
-            message.getMimeMessage().removeHeader("Message-ID");
+            String messageIdDomain = conf.get(SMTP_MESSAGE_ID_DOMAIN).getValueOrNull();
+            if (messageIdDomain == null || messageIdDomain.isBlank()) {
+                messageIdDomain = conf.get(SMTP_HOST).getRequiredValue();
+            }
+            String messageId = message.getMimeMessage().getMessageID();
+            if (messageId != null) {
+                int at = messageId.lastIndexOf('@');
+                if (at > 0) {
+                    message.getMimeMessage().setHeader("Message-ID",
+                        messageId.substring(0, at + 1) + messageIdDomain + (messageId.endsWith(">") ? ">" : ""));
+                }
+            }
         };
         toMailSender(conf).send(preparator);
     }
@@ -103,20 +115,46 @@ class SmtpMailer extends BaseMailer {
         r.setHost(conf.get(SMTP_HOST).getRequiredValue());
         r.setPort(Integer.parseInt(conf.get(SMTP_PORT).getRequiredValue()));
         r.setProtocol(conf.get(SMTP_PROTOCOL).getRequiredValue());
-        r.setUsername(conf.get(SMTP_USERNAME).getValueOrNull());
-        r.setPassword(conf.get(SMTP_PASSWORD).getValueOrNull());
+
+        String username = conf.get(SMTP_USERNAME).getValueOrNull();
+        String password = conf.get(SMTP_PASSWORD).getValueOrNull();
+
+        r.setUsername(username);
+        r.setPassword(password);
+
+        boolean hasCredentials = username != null && !username.isBlank() && password != null && !password.isBlank();
 
         String properties = conf.get(SMTP_PROPERTIES).getValueOrNull();
 
+        Properties mailProperties = new Properties();
+
         if (properties != null) {
             try {
-                Properties prop = PropertiesLoaderUtils.loadProperties(new EncodedResource(new ByteArrayResource(
-                        properties.getBytes(UTF_8)), UTF_8.name()));
-                r.setJavaMailProperties(prop);
+                mailProperties.putAll(PropertiesLoaderUtils.loadProperties(
+                    new EncodedResource(
+                        new ByteArrayResource(properties.getBytes(UTF_8)),
+                        UTF_8.name()
+                    )
+                ));
             } catch (IOException e) {
                 log.warn("error while setting the mail sender properties", e);
             }
         }
+
+        
+        mailProperties.put("mail.smtp.auth", Boolean.toString(hasCredentials));
+        if (hasCredentials && "smtps".equalsIgnoreCase(conf.get(SMTP_PROTOCOL).getRequiredValue())) {
+            mailProperties.put("mail.smtps.auth", "true");
+        }
+        mailProperties.put("mail.smtp.sendpartial", "false");
+        mailProperties.put("mail.smtp.quitwait", "false");
+
+        String localhost = conf.get(SMTP_LOCALHOST).getValueOrNull();
+        if (localhost != null && !localhost.isBlank()) {
+            mailProperties.put("mail.smtp.localhost", localhost);
+        }
+
+        r.setJavaMailProperties(mailProperties);
         return r;
     }
     
@@ -143,17 +181,17 @@ class SmtpMailer extends BaseMailer {
             return this.defaultFileTypeMap;
         }
         
-        @Override
-        protected void updateMessageID() throws MessagingException {
-            removeHeader("Message-Id");
-        }
+        // @Override
+        // protected void updateMessageID() throws MessagingException {
+        //     removeHeader("Message-Id");
+        // }
         
-        @Override
-        public void setHeader(String name, String value) throws MessagingException {
-            if(!"Message-Id".equals(name)) {
-                super.setHeader(name, value);
-            }
-        }
+        // @Override
+        // public void setHeader(String name, String value) throws MessagingException {
+        //     if(!"Message-Id".equals(name)) {
+        //         super.setHeader(name, value);
+        //     }
+        // }
     }
     
     static class CustomJavaMailSenderImpl extends JavaMailSenderImpl {

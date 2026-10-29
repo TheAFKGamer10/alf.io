@@ -101,24 +101,29 @@
       <app-recaptcha [apiKey]="purchaseContext.captchaConfiguration.recaptchaApiKey" (recaptchaResponse)="handleRecaptchaResponse($event)"></app-recaptcha>
     </div>
 
+    <div class="form-check" [class.invisible]="submitting">
+        <input class="form-check-input" id="termsAndConditionsAccepted" formControlName="termAndConditionsAccepted" type="checkbox" aria-labelledby="terms-conditions-label">
+        <label class="form-check-label" for="termsAndConditionsAccepted" id="terms-conditions-label">
+          {{' '}}<span [innerHTML]="'reservation-page.tc.prefix' | translate"></span>{{' '}}<a [attr.href]="purchaseContext.termsAndConditionsUrl" target="_blank" rel="noopener" translate="reservation-page.tc.link.text"></a>{{' '}}<span translate="reservation-page.tc.suffix"></span>
+        </label>
+    </div>
     <div class="form-check" *ngIf="purchaseContext.privacyPolicyUrl" [class.invisible]="submitting">
         <input class="form-check-input" id="privacyPolicyAccepted" formControlName="privacyPolicyAccepted" type="checkbox" aria-labelledby="privacy-policy-label">{{' '}} <!-- ugly, see  https://github.com/angular/angular/issues/21049 -->
         <label for="privacyPolicyAccepted" class="form-check-label" id="privacy-policy-label">
           <span [innerHTML]="'reservation-page.privacy.prefix' | translate"></span>{{' '}}<a [attr.href]="purchaseContext.privacyPolicyUrl" target="_blank" rel="noopener" translate="reservation-page.privacy.link.text"></a>{{' '}}<span translate="reservation-page.privacy.suffix"></span>
         </label>
     </div>
-    <div class="form-check mb-3" [class.invisible]="submitting">
-        <input class="form-check-input" id="termsAndConditionsAccepted" formControlName="termAndConditionsAccepted" type="checkbox" aria-labelledby="terms-conditions-label">
-        <label class="form-check-label" for="termsAndConditionsAccepted" id="terms-conditions-label">
-          {{' '}}<span [innerHTML]="'reservation-page.tc.prefix' | translate"></span>{{' '}}<a [attr.href]="purchaseContext.termsAndConditionsUrl" target="_blank" rel="noopener" translate="reservation-page.tc.link.text"></a>{{' '}}<span translate="reservation-page.tc.suffix"></span>
-        </label>
+    <div class="form-check" [class.invisible]="submitting">
+        <input class="form-check-input" id="waiverAccepted" formControlName="waiverAccepted" type="checkbox" aria-labelledby="waiver-label">{{' '}} <!-- ugly, see  https://github.com/angular/angular/issues/21049 -->
+        <label for="waiverAccepted" class="form-check-label" id="waiver-label">
+        <span [innerHTML]="'reservation-page.privacy.prefix' | translate"></span>{{ " " }}<span [innerHTML]="'reservation-page.waiver' | translate"></span>{{ " " }}<span translate="reservation-page.privacy.suffix"></span>        </label>
     </div>
 
-    <hr class="mt-5">
+    <hr class="mt-3">
 
     <div class="row d-flex justify-content-between mobile-add-margin-bottom mt-4" *ngIf="!submitting">
       <div class="col-md-5 order-md-1 col-12">
-        <button *ngIf="reservationInfo.orderSummary.free" type="submit" class="block-button btn btn-success" translate="reservation-page.continue" [disabled]="expired"></button>
+        <button *ngIf="reservationInfo.orderSummary.free" type="submit" class="block-button btn btn-success" translate="reservation-page.continue" [disabled]="expired || !acceptedPrivacyAndTermAndConditions"></button>
         <button *ngIf="!reservationInfo.orderSummary.free" type="submit" class="block-button btn btn-success" [disabled]="expired || !selectedPaymentProvider || !acceptedPrivacyAndTermAndConditions">
           <ng-container *ngIf="!reservationInfo.tokenAcquired">
             {{ (paymentMethodDeferred ? 'common.confirm' : 'reservation-page.pay')| translate}} <app-price-tag *ngIf="!paymentMethodDeferred" [purchaseContext]="purchaseContext" [formattedPrice]="reservationInfo.orderSummary.totalPrice" [displayTextInline]="true"></app-price-tag>

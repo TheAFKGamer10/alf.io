@@ -148,8 +148,8 @@
 
         <h3><span class="strong">{{purchaseContext.displayName}}</span>{{#isEvent}},
             <i>
-                {{#purchaseContext.sameDay}}{{#i18n}}event-days.same-day [{{#format-date}}{{purchaseContext.begin}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{purchaseContext.begin}} HH:mm{{/format-date}}] [{{#format-date}}{{purchaseContext.end}} HH:mm (z){{/format-date}}] {{/i18n}}{{/purchaseContext.sameDay}}
-                {{^purchaseContext.sameDay}}{{#i18n}}event-days.not-same-day [{{#format-date}}{{purchaseContext.begin}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{purchaseContext.begin}} HH:mm{{/format-date}}]{{/i18n}} - {{#i18n}}event-days.not-same-day [{{#format-date}}{{purchaseContext.end}} EEEE dd MMMM yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{purchaseContext.end}} HH:mm (z){{/format-date}}]{{/i18n}} {{/purchaseContext.sameDay}}
+                {{#purchaseContext.sameDay}}{{#i18n}}event-days.same-day [{{#format-date}}{{purchaseContext.begin}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{purchaseContext.begin}} h:mm a{{/format-date}}] [{{#format-date}}{{purchaseContext.end}} h:mm a (z){{/format-date}}] {{/i18n}}{{/purchaseContext.sameDay}}
+                {{^purchaseContext.sameDay}}{{#i18n}}event-days.not-same-day [{{#format-date}}{{purchaseContext.begin}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{purchaseContext.begin}} h:mm a{{/format-date}}]{{/i18n}} - {{#i18n}}event-days.not-same-day [{{#format-date}}{{purchaseContext.end}} EEEE, MMMM d, yyyy locale:{{#i18n}}locale{{/i18n}}{{/format-date}}] [{{#format-date}}{{purchaseContext.end}} h:mm a (z){{/format-date}}]{{/i18n}} {{/purchaseContext.sameDay}}
             </i>{{/isEvent}}
         </h3>
         <table style="width:100%;" class="summary">

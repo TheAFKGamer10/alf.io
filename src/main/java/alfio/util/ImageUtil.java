@@ -97,21 +97,10 @@ public final class ImageUtil {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             BitMatrix matrix = drawQRCode(text);
             BufferedImage bufferedImage = MatrixToImageWriter.toBufferedImage(matrix);
-            BufferedImage scaled = new BufferedImage(200, 230, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D graphics = (Graphics2D)scaled.getGraphics();
-            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            graphics.drawImage(bufferedImage, 0,0, null);
-            graphics.setColor(Color.WHITE);
-            graphics.fillRect(0, 200, 200, 30);
-            graphics.setColor(Color.BLACK);
-            File fontFile = getDejaVuSansMonoFont(fileUploadManager);
-            if (fontFile != null) {
-                graphics.setFont(Font.createFont(Font.TRUETYPE_FONT, fontFile).deriveFont(14f));
-                graphics.drawString(center(truncate(description, 23), 25), 0, 215);
-            }
-            ImageIO.write(scaled, "png", baos);
+            // Remove extra white space: only QR code, no extra height or white rectangle
+            ImageIO.write(bufferedImage, "png", baos);
             return baos.toByteArray();
-        } catch (WriterException | IOException | FontFormatException e) {
+        } catch (WriterException | IOException e) {
             throw new IllegalStateException(e);
         }
     }

@@ -6,6 +6,16 @@
         <option [ngValue]="qty">{{qty}}</option>
       }
     </select>
+    <div class="form-text mt-1" *ngIf="category.hasDiscount && parentGroup.get('amount').value > 0">
+      <small>
+        <span *ngIf="parentGroup.get('amount').value <= category.maximumSaleableTickets">
+          {{ 'show-event.promo.applied.count' | translate : { '0': parentGroup.get('amount').value } }}
+        </span>
+        <span *ngIf="parentGroup.get('amount').value > category.maximumSaleableTickets">
+          {{ 'show-event.promo.applied.count-limited' | translate : { '0': category.maximumSaleableTickets, '1': parentGroup.get('amount').value - category.maximumSaleableTickets } }}
+        </span>
+      </small>
+    </div>
   } @else {
       <div class="d-flex flex-column align-items-center gap-2">
       @if (category.containsPendingTickets) {

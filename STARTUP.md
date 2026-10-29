@@ -1,0 +1,1 @@
+./gradlew distribution -x test && /usr/bin/java -Xms100M -Xmx256M -jar /var/www/4H/alfio/alf.io/build/libs/alfio-2.0-M5-2609-boot.jar

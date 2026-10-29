@@ -15,7 +15,15 @@
             <tr ng-repeat="audit in entries">
                 <td ng-bind="translateType(audit.eventType)"></td>
                 <td ng-bind="audit.eventTime|formatDate"></td>
-                <td ng-if="audit.username"><abbr title="{{audit.firstName}} {{audit.lastName}} {{audit.email}}">{{audit.username}}</abbr></td>
+                <td ng-if="audit.username">
+                    <!-- If there's a description (likely API key), show it and allow revealing the raw key in the title -->
+                    <span ng-if="audit.description">
+                        <abbr ng-attr-title="{{revealMap[$index] ? audit.username : (audit.username ? '••••••' + (audit.username | limitTo:6 : (audit.username.length-6)) : '')}}">{{audit.description || audit.username}}</abbr>
+                        <a href="#" ng-click="$event.preventDefault(); revealMap[$index] = !revealMap[$index]" class="ml-2">{{revealMap[$index] ? 'Hide' : 'Reveal'}}</a>
+                    </span>
+                    <!-- Otherwise fall back to existing display: username with personal info in title -->
+                    <span ng-if="!audit.description"><abbr title="{{audit.firstName}} {{audit.lastName}} {{audit.email}}">{{audit.username}}</abbr></span>
+                </td>
             </tr>
         </tbody>
     </table>

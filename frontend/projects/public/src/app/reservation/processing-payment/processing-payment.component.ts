@@ -27,6 +27,8 @@ export class ProcessingPaymentComponent implements OnInit, OnDestroy {
   private forceCheckInProgress = false;
 
   private intervalId: any;
+  private forceCheckIntervalId: any;
+  private forceCheckTimerInProgress = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -68,6 +70,35 @@ export class ProcessingPaymentComponent implements OnInit, OnDestroy {
           }
         });
       }, 2000);
+
+      // Call the force-check endpoint every second. Protect against overlapping requests.
+      this.forceCheckIntervalId = setInterval(() => {
+        if (this.forceCheckTimerInProgress) {
+          return;
+        }
+        this.forceCheckTimerInProgress = true;
+        this.reservationService.forcePaymentStatusCheck(this.reservationId).subscribe(status => {
+          if (!this.reservationInfo) {
+            // if we don't have reservation info yet, ignore
+            this.forceCheckTimerInProgress = false;
+            return;
+          }
+
+          if (status.redirect) {
+            window.location.href = status.redirectUrl;
+          } else if (status.success || status.failure) {
+            clearInterval(this.intervalId);
+            clearInterval(this.forceCheckIntervalId);
+            this.reservationStateChanged();
+          }
+          this.forceCheckTimerInProgress = false;
+        }, err => {
+          // keep same error handling as manual force check
+          console.log('got error', err);
+          notifyPaymentErrorToParent(this.purchaseContext, this.reservationInfo, this.reservationId, err);
+          this.forceCheckTimerInProgress = false;
+        });
+      }, 1000);
     });
   }
   private reservationStateChanged() {
@@ -79,7 +110,10 @@ export class ProcessingPaymentComponent implements OnInit, OnDestroy {
   }
 
   public ngOnDestroy() {
-    clearInterval(this.intervalId);
+    clearInterval(this.intervalId);    
+    if (this.forceCheckIntervalId) {
+      clearInterval(this.forceCheckIntervalId);
+    }
   }
 
   forceCheck(): void {
