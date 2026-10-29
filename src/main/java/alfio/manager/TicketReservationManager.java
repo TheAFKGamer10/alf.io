@@ -474,7 +474,7 @@ public class TicketReservationManager {
 
         // initialize tickets (for special prices we already bound as many as possible earlier). We'll still call init to set owners and metadata.
         initTicketsForReservation(event, reservationId, locale, accessCodeOrDiscount, specialPrices, reservedForUpdate, category, ticketReservation);
-        Ticket ticket = ticketRepository.findById(reservedForUpdate.get(0), category.getId());
+        Ticket ticket = ticketRepository.findById(reservedForUpdate.getFirst(), category.getId());
         var promoToApply = ObjectUtils.firstNonNull(dynamicDiscount, accessCodeOrDiscount);
         var currencyCode = category.getCurrencyCode();
 
@@ -529,8 +529,8 @@ public class TicketReservationManager {
             }
 
             if(specialPrices.size() == 1) {
-                var ticketId = reservedForUpdate.get(0);
-                var sp = specialPrices.get(0);
+                var ticketId = reservedForUpdate.getFirst();
+                var sp = specialPrices.getFirst();
                 var accessCodeId = accessCodeOrDiscount != null && accessCodeOrDiscount.getHiddenCategoryId() != null ? accessCodeOrDiscount.getId() : null;
                 TicketMetadata metadata = null;
                 var attendee = getAtIndexOrEmpty(attendees, 0);
@@ -1595,7 +1595,7 @@ public class TicketReservationManager {
         List<TicketReservation> results = ticketReservationRepository.findByPartialID(trimToEmpty(reservationId).toLowerCase() + "%");
         Validate.isTrue(!results.isEmpty(), "reservation not found");
         Validate.isTrue(results.size() == 1, "multiple results found. Try handling this reservation manually.");
-        return results.get(0);
+        return results.getFirst();
     }
 
     public String getShortReservationID(Configurable event, String reservationId) {

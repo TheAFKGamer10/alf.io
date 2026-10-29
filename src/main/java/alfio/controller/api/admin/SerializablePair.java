@@ -16,6 +16,7 @@
  */
 package alfio.controller.api.admin;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.experimental.Delegate;
 import org.apache.commons.lang3.tuple.Pair;
@@ -25,6 +26,7 @@ public final class SerializablePair<L,R> {
     @JsonIgnore
     private final Pair<L, R> pair;
 
+    @JsonCreator
     private SerializablePair(Pair<L, R> pair) {
         this.pair = pair;
     }

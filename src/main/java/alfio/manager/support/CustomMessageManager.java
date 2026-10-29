@@ -62,15 +62,23 @@ public class CustomMessageManager {
     private final ExtensionManager extensionManager;
     private final EventRepository eventRepository;
 
-    public Map<String, Object> generatePreview(String eventName, Optional<Integer> categoryId, List<MessageModification> input, String username) {
+    /**
+     * @param categoryIds the categories whose attendees will receive the message. Empty means all the attendees.
+     */
+    public Map<String, Object> generatePreview(String eventName, Set<Integer> categoryIds, List<MessageModification> input, String username) {
         Map<String, Object> result = new HashMap<>();
         Event event = eventManager.getSingleEvent(eventName, username);
-        result.put("affectedUsers", categoryId.map(id -> ticketRepository.countAssignedTickets(event.getId(), id)).orElseGet(() -> ticketRepository.countAllAssigned(event.getId())));
-        result.put("preview", preview(event, input, username));
+        result.put("affectedUsers", countRecipients(event.getId(), categoryIds));
+        var preview = preview(event, input, username);
+        result.put("preview", preview);
+        result.put("htmlPreview", htmlPreview(event, preview));
         return result;
     }
 
-    public void sendMessages(String eventName, Optional<Integer> categoryId, List<MessageModification> input, String username) {
+    /**
+     * @param categoryIds the categories whose attendees will receive the message. Empty means all the attendees.
+     */
+    public void sendMessages(String eventName, Set<Integer> categoryIds, List<MessageModification> input, String username) {
 
         Event event = eventManager.getSingleEvent(eventName, username);
         preview(event, input, username); // dry run for checking the syntax
@@ -83,16 +91,29 @@ public class CustomMessageManager {
         boolean googleWalletEnabled = configuration.get(ConfigurationKeys.ENABLE_WALLET).getValueAsBooleanOrDefault();
         boolean appleWalletEnabled = configuration.get(ConfigurationKeys.ENABLE_PASS).getValueAsBooleanOrDefault();
 
-        sendMessagesExecutor.execute(() -> internalSendMessages(categoryId, new SendMessagesParams(event, organization, byLanguage,googleWalletEnabled, appleWalletEnabled, baseUrl), categoriesById, configuration));
+        sendMessagesExecutor.execute(() -> internalSendMessages(categoryIds, new SendMessagesParams(event, organization, byLanguage,googleWalletEnabled, appleWalletEnabled, baseUrl), categoriesById, configuration));
 
+    }
+
+    private int countRecipients(int eventId, Set<Integer> categoryIds) {
+        if (categoryIds.isEmpty()) {
+            return ticketRepository.countAllAssigned(eventId);
+        }
+        return ticketRepository.countAssignedTicketsInCategories(eventId, categoryIds);
+    }
+
+    private List<Ticket> findRecipients(int eventId, Set<Integer> categoryIds) {
+        if (categoryIds.isEmpty()) {
+            return ticketRepository.findAllConfirmed(eventId);
+        }
+        return ticketRepository.findConfirmedInCategories(eventId, categoryIds);
     }
 
     record SendMessagesParams(Event event, Organization organization, Map<String, List<MessageModification>> byLanguage, boolean googleWalletEnabled, boolean appleWalletEnabled, String baseUrl) {}
 
-    private void internalSendMessages(Optional<Integer> categoryId, SendMessagesParams params, Map<Integer, TicketCategory> categoriesById, Map<ConfigurationKeys, ConfigurationManager.MaybeConfiguration> configuration) {
+    private void internalSendMessages(Set<Integer> categoryIds, SendMessagesParams params, Map<Integer, TicketCategory> categoriesById, Map<ConfigurationKeys, ConfigurationManager.MaybeConfiguration> configuration) {
         var messageSource = messageSourceManager.getMessageSourceFor(params.event);
-        categoryId.map(id -> ticketRepository.findConfirmedByCategoryId(params.event.getId(), id))
-            .orElseGet(() -> ticketRepository.findAllConfirmed(params.event.getId()))
+        findRecipients(params.event.getId(), categoryIds)
             .stream()
             .filter(t -> isNotBlank(t.getFullName()) && Validator.isEmailValid(t.getEmail()))
             .map(t -> {
@@ -110,7 +131,7 @@ public class CustomMessageManager {
             })
             .forEach(triple -> {
                 Ticket ticket = triple.getLeft();
-                MessageModification m = Optional.ofNullable(params.byLanguage.get(ticket.getUserLanguage())).orElseGet(() -> params.byLanguage.get(params.byLanguage.keySet().stream().findFirst().orElseThrow(IllegalStateException::new))).get(0);
+                MessageModification m = Optional.ofNullable(params.byLanguage.get(ticket.getUserLanguage())).orElseGet(() -> params.byLanguage.get(params.byLanguage.keySet().stream().findFirst().orElseThrow(IllegalStateException::new))).getFirst();
                 Model model = triple.getRight();
                 String subject = renderResource(m.getSubject(), params.event, model, m.getLocale(), templateManager);
                 StringBuilder text = new StringBuilder(renderResource(m.getText(), params.event, model, m.getLocale(), templateManager));
@@ -144,18 +165,12 @@ public class CustomMessageManager {
                         boolean htmlEmailsEnabled = configuration.get(ConfigurationKeys.ENABLE_HTML_EMAILS).getValueAsBooleanOrDefault();
                         attachments.add(generateTicketAttachment(ticket, optionalReservation.get(), optionalTicketCategory.get(), params.organization, htmlEmailsEnabled));
                     }
-                    templateModel.put("googleWalletEnabled", params.googleWalletEnabled && !onlineTicket);
-                    templateModel.put("appleWalletEnabled", params.appleWalletEnabled && !onlineTicket);
-                    templateModel.put("walletEnabled", (params.googleWalletEnabled || params.appleWalletEnabled) && !onlineTicket);
+                    addTemplateAttributes(templateModel, params.event, params.baseUrl, text,
+                        params.googleWalletEnabled && !onlineTicket, params.appleWalletEnabled && !onlineTicket);
                 } else {
                     // ticket attachment was not requested. Do not display wallet
-                    templateModel.put("googleWalletEnabled", false);
-                    templateModel.put("appleWalletEnabled", false);
-                    templateModel.put("walletEnabled", false);
+                    addTemplateAttributes(templateModel, params.event, params.baseUrl, text, false, false);
                 }
-                templateModel.put("message", text);
-                templateModel.put("event", params.event);
-                templateModel.put("baseUrl", params.baseUrl);
                 notificationManager.sendSimpleEmail(params.event, ticket.getTicketsReservationId(), triple.getMiddle(), subject,
                     () -> templateManager.renderTemplate(params.event, TemplateResource.CUSTOM_MESSAGE, templateModel, Locale.forLanguageTag(ticket.getUserLanguage())), attachments);
             });
@@ -176,6 +191,49 @@ public class CustomMessageManager {
                 .map(m -> MessageModification.preview(m, renderResource(m.getSubject(), event, model, m.getLocale(), templateManager),
                     renderResource(m.getText(), event, model, m.getLocale(), templateManager), m.isAttachTicket()))
                 .toList();
+    }
+
+    /**
+     * Renders the HTML version of the e-mail, as the attendees would receive it, using the already rendered preview text.
+     * Locales whose message would be sent as plain text (HTML e-mails disabled or overridden template) are omitted.
+     *
+     * @return the rendered HTML, by locale
+     */
+    private Map<String, String> htmlPreview(Event event, List<MessageModification> preview) {
+        var configuration = configurationManager.getFor(EnumSet.of(ConfigurationKeys.BASE_URL,
+            ConfigurationKeys.ENABLE_WALLET, ConfigurationKeys.ENABLE_PASS), event.getConfigurationLevel());
+        var baseUrl = configuration.get(ConfigurationKeys.BASE_URL).getRequiredValue();
+        boolean googleWalletEnabled = configuration.get(ConfigurationKeys.ENABLE_WALLET).getValueAsBooleanOrDefault();
+        boolean appleWalletEnabled = configuration.get(ConfigurationKeys.ENABLE_PASS).getValueAsBooleanOrDefault();
+        Map<String, String> result = new HashMap<>();
+        for (MessageModification m : preview) {
+            // wallet passes are not available for online events. See internalSendMessages
+            boolean walletAllowed = m.isAttachTicket() && !event.isOnline();
+            Map<String, Object> templateModel = new HashMap<>();
+            // the wallet links refer to the ticket, which is available only when sending the actual message
+            templateModel.put("ticket", Map.of("publicUuid", "TICKETID"));
+            addTemplateAttributes(templateModel, event, baseUrl, m.getTextExample(),
+                googleWalletEnabled && walletAllowed, appleWalletEnabled && walletAllowed);
+            var htmlPart = templateManager.renderTemplate(event, TemplateResource.CUSTOM_MESSAGE, templateModel, m.getLocale()).getHtmlPart();
+            if (htmlPart != null) {
+                result.put(m.getLocale().toString(), htmlPart);
+            }
+        }
+        return result;
+    }
+
+    private static void addTemplateAttributes(Map<String, Object> templateModel,
+                                              Event event,
+                                              String baseUrl,
+                                              CharSequence message,
+                                              boolean googleWalletEnabled,
+                                              boolean appleWalletEnabled) {
+        templateModel.put("googleWalletEnabled", googleWalletEnabled);
+        templateModel.put("appleWalletEnabled", appleWalletEnabled);
+        templateModel.put("walletEnabled", googleWalletEnabled || appleWalletEnabled);
+        templateModel.put("message", message);
+        templateModel.put("event", event);
+        templateModel.put("baseUrl", baseUrl);
     }
 
     public static Mailer.Attachment generateTicketAttachment(Ticket ticket,

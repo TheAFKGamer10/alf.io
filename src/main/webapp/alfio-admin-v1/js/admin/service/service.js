@@ -34,7 +34,7 @@
         };
     });
 
-    baseServices.service('PurchaseContextService', function(EventService, SubscriptionService, AdminReservationService, $http, HttpErrorHandler) {
+    baseServices.service('PurchaseContextService', function(EventService, SubscriptionService) {
         return {
             findAllReservations: function(type, contextName, page, search, status) {
                 if(type === 'event') {
@@ -42,16 +42,6 @@
                 } else {
                     return SubscriptionService.findAllReservations(contextName, page, search, status);
                 }
-            },
-            findAllPayments: function(type, contextName, page, search) {
-                return $http.get('/admin/api/payments/'+ type + '/' + contextName + '/list', {params: {page: page, search: search}});
-            },
-            editPaymentDetails: function(reservationId, purchaseContextType, publicIdentifier) {
-                var infoLoader = AdminReservationService.paymentInfo(purchaseContextType, publicIdentifier, reservationId);
-                return EventService.editTransactionModal(reservationId, 'edit', infoLoader, function(res) {
-                    return $http.put('/admin/api/payments/'+ purchaseContextType + '/' + publicIdentifier + '/reservation/' + reservationId, res)
-                        .error(HttpErrorHandler.handle);
-                });
             }
         };
     });
@@ -166,104 +156,6 @@
             unbindTickets: function(event, category) {
                 return $http['put']('/admin/api/events/'+event.shortName+'/category/'+category.id+'/unbind-tickets').error(HttpErrorHandler.handle);
             },
-            getPendingPayments: function(eventName, forceReload) {
-                service.data.pendingPayments = service.data.pendingPayments || {};
-                var element = service.data.pendingPayments[eventName];
-                var now = moment();
-                if(!angular.isDefined(element) || now.subtract(20, 's').isAfter(element.ts) || forceReload) {
-                    var promise = $http.get('/admin/api/events/'+eventName+'/pending-payments').error(HttpErrorHandler.handle);
-                    element = {
-                        ts: moment(),
-                        payments: promise
-                    };
-                    service.data.pendingPayments[eventName] = element;
-                }
-                return element.payments;
-            },
-            getPendingPaymentsCount: function(eventName) {
-                return $http.get('/admin/api/events/'+eventName+'/pending-payments-count').error(HttpErrorHandler.handle).then(function(res) {var v = parseInt(res.data); return isNaN(v) ? 0 : v; });
-            },
-            editTransactionModal: function(reservationId, type, transactionLoader, callback) {
-                var preloadPromise;
-                if (transactionLoader) {
-                    preloadPromise = transactionLoader.then(function(container) {
-                        var transaction = container.data.data.transaction;
-                        return {
-                            timestamp: {
-                                date: moment(transaction.timestamp).format('YYYY-MM-DD'),
-                                time: moment(transaction.timestamp).format('HH:mm')
-                            },
-                            timestampEditable: transaction.timestampEditable,
-                            notes: transaction.notes
-                        }
-                    });
-                } else {
-                    preloadPromise = $q.resolve({
-                        timestamp: {
-                            date: moment().format('YYYY-MM-DD'),
-                            time: moment().format('HH:mm')
-                        },
-                        timestampEditable: true,
-                        notes: ''
-                    });
-                }
-
-                var modal = $uibModal.open({
-                    size:'md',
-                    templateUrl: window.ALFIO_CONTEXT_PATH + '/resources/angular-templates/admin/partials/payment/edit-transaction-modal.html',
-                    backdrop: 'static',
-                    controllerAs: '$ctrl',
-                    controller: function() {
-                        var ctrl = this;
-                        ctrl.actionText = type === 'pending-payment' ? 'Confirm' : 'Edit';
-                        ctrl.confirmText = type === 'pending-payment' ? 'Confirm' : 'Save';
-                        ctrl.reservationId = reservationId;
-                        ctrl.minDate = moment().subtract(1, 'years').format('YYYY-MM-DD');
-                        ctrl.isLoading = true;
-                        preloadPromise.then(function(res) {
-                            ctrl.isLoading = false;
-                            ctrl.transaction = res;
-                        }, function(err) {
-                            modal.dismiss('error');
-                        });
-
-                        ctrl.cancel = function() {
-                            modal.dismiss('cancelled');
-                        };
-                        ctrl.confirm = function() {
-                            var result = {
-                                timestamp: ctrl.transaction.timestampEditable ? ctrl.transaction.timestamp : null,
-                                notes: ctrl.transaction.notes
-                            };
-                            if (callback) {
-                                callback(result).then(function() {
-                                    modal.close(result);
-                                });
-                            } else {
-                                modal.close(result);
-                            }
-                        }
-                    }
-                });
-                return modal.result;
-            },
-            registerPayment: function(eventName, reservationId) {
-                return service.editTransactionModal(reservationId, 'pending-payment').then(function(metadata) {
-                    return $http['post']('/admin/api/events/'+eventName+'/pending-payments/'+reservationId+'/confirm', metadata)
-                         .error(HttpErrorHandler.handle);
-                });
-            },
-            cancelPayment: function(eventName, reservationId, credit, notify) {
-                return $http['delete']('/admin/api/events/'+eventName+'/pending-payments/'+reservationId, {
-                    params: {
-                        credit: credit,
-                        notify: notify
-                    }
-                }).error(HttpErrorHandler.handle);
-            },
-            cancelMatchingPayment: function(eventName, reservationId, transactionId) {
-                return $http['delete']('/admin/api/events/'+eventName+'/reservation/'+reservationId+'/transaction/'+transactionId+'/discard').error(HttpErrorHandler.handle);
-            },
             sendCodesByEmail: function(eventName, categoryId, pairs) {
                 return $http['post']('/admin/api/events/'+eventName+'/categories/'+categoryId+'/send-codes', pairs).error(HttpErrorHandler.handle);
             },
@@ -281,14 +173,6 @@
             },
             getSupportedLanguages: function() {
                 return $http['get']('/admin/api/events-supported-languages').error(HttpErrorHandler.handle);
-            },
-            getMessagesPreview: function(eventName, categoryId, messages) {
-                var queryString = angular.isNumber(categoryId) ? '?categoryId='+categoryId : '';
-                return $http['post']('/admin/api/events/'+eventName+'/messages/preview'+queryString, messages).error(HttpErrorHandler.handle);
-            },
-            sendMessages: function(eventName, categoryId, messages) {
-                var queryString = angular.isDefined(categoryId) && categoryId !== "" && categoryId !== null ? '?categoryId='+categoryId : '';
-                return $http['post']('/admin/api/events/'+eventName+'/messages/send'+queryString, messages).error(HttpErrorHandler.handle);
             },
             getFields : function(eventName) {
                 return $http['get']('/admin/api/events/'+eventName+'/fields');
@@ -752,90 +636,6 @@
         };
         return instance;
     });
-
-    baseServices.service("PromoCodeService", function($http, HttpErrorHandler) {
-
-        function addUtfOffsetIfNecessary(promoCode) {
-            if(promoCode.eventId == null) {
-                promoCode.utcOffset = (new Date()).getTimezoneOffset()*-60; //in seconds
-            }
-        }
-
-        return {
-                add : function(promoCode) {
-                    addUtfOffsetIfNecessary(promoCode);
-                    return $http['post']('/admin/api/promo-code', promoCode).error(HttpErrorHandler.handle);
-                },
-                remove: function(promoCodeId) {
-                    return $http['delete']('/admin/api/promo-code/' + promoCodeId).error(HttpErrorHandler.handle);
-                },
-                list: function(eventId) {
-                    return $http.get('/admin/api/events/' + eventId + '/promo-code').error(HttpErrorHandler.handle);
-                },
-                listOrganization : function(organizationId) {
-                    return $http.get('/admin/api/organization/' + organizationId + '/promo-code').error(HttpErrorHandler.handle);
-                },
-                countUse : function(promoCodeId) {
-                    return $http.get('/admin/api/promo-code/' + promoCodeId + '/count-use');
-                },
-                disable: function(promoCodeId) {
-                    return $http['post']('/admin/api/promo-code/' + promoCodeId + '/disable');
-                },
-                update: function(promoCodeId, toUpdate) {
-                    addUtfOffsetIfNecessary(toUpdate);
-                    return $http.post('/admin/api/promo-code/' + promoCodeId, toUpdate);
-                },
-                getUsageDetails: function(promoCodeId, eventShortName) {
-                    return $http.get('/admin/api/promo-code/' + promoCodeId + '/detailed-usage', {
-                        params: {
-                            eventShortName
-                        }
-                    });
-                }
-        };
-    });
-
-    baseServices.service("CheckInService", ['$http', 'HttpErrorHandler', '$window', function($http, HttpErrorHandler, $window) {
-        return {
-            findAllTicketIds : function(eventId) {
-                var sessionStorageKey = 'CHECK_IN_TIMESTAMP_'+eventId;
-                var since = $window.sessionStorage.getItem(sessionStorageKey);
-                var sinceParam = since ? '?changedSince='+since : '';
-                return $http.get('/admin/api/check-in/' + eventId + '/ticket-identifiers' + sinceParam)
-                    .then(function(resp) {
-                        $window.sessionStorage.setItem(sessionStorageKey, resp.headers('Alfio-TIME'));
-                        return resp;
-                    }, HttpErrorHandler.handle);
-            },
-
-            downloadTickets: function(eventId, ids) {
-                return $http.post('/admin/api/check-in/'+eventId+'/tickets', ids).error(HttpErrorHandler.handle);
-            },
-
-            getTicket: function(eventId, code) {
-                var ticketIdentifier = code.split('/')[0];
-                return $http.get('/admin/api/check-in/' + eventId + '/ticket/' + ticketIdentifier + "?qrCode=" + encodeURIComponent(code)).error(HttpErrorHandler.handle);
-            },
-
-            checkIn: function(eventId, ticket) {
-                var ticketIdentifier = ticket.code.split('/')[0];
-                return $http['post']('/admin/api/check-in/' + eventId + '/ticket/' + ticketIdentifier, ticket).error(HttpErrorHandler.handle);
-            },
-
-            manualCheckIn: function(ticket) {
-                return $http['post']('/admin/api/check-in/' + ticket.eventId + '/ticket/' + ticket.uuid + '/manual-check-in', ticket).error(HttpErrorHandler.handle);
-            },
-
-            revertCheckIn: function(ticket) {
-                return $http['post']('/admin/api/check-in/' + ticket.eventId + '/ticket/' + ticket.uuid + '/revert-check-in', ticket).error(HttpErrorHandler.handle);
-            },
-
-            confirmPayment: function(eventId, ticket) {
-                var ticketIdentifier = ticket.code.split('/')[0];
-                return $http['post']('/admin/api/check-in/' + eventId + '/ticket/' + ticketIdentifier + '/confirm-on-site-payment').error(HttpErrorHandler.handle);
-            }
-        };
-    }]);
 
     baseServices.service("FileUploadService", function($http, HttpErrorHandler) {
         return {

@@ -154,6 +154,13 @@ public class EventModification {
         return locationDescriptor;
     }
 
+    // the "geolocation" creator parameter would link this getter to the same property as getGeolocation(),
+    // and Jackson 3 would fail with "Conflicting getter definitions". Keep it as a separate property
+    @JsonProperty("locationDescriptor")
+    public LocationDescriptor getLocationDescriptor() {
+        return locationDescriptor;
+    }
+
     public boolean isOnline() {
         return format == Event.EventFormat.ONLINE;
     }

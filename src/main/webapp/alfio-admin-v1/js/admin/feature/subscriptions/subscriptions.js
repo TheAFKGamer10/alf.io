@@ -42,28 +42,22 @@
         })
         .state('subscriptions.single.reservationsList', {
             url: '/reservations/?search',
-            template: '<reservations-list purchase-context="ctrl.subscriptionDescriptor" purchase-context-type="ctrl.purchaseContextType"></reservations-list>',
+            // The Lit component owns filtering; query changes must preserve its DOM.
+            reloadOnSearch: false,
+            template: '<alfio-reservations-list data-event-name="{{ctrl.subscriptionDescriptor.publicIdentifier}}" data-organization-id="{{ctrl.subscriptionDescriptor.organizationId}}" data-purchase-context-type="subscription" data-title="{{ctrl.subscriptionDescriptor.title.en}}"></alfio-reservations-list>',
             controller: ['loadSubscription', function(loadSubscription) {
-                var ctrl = this;
-                ctrl.subscriptionDescriptor = loadSubscription.data;
-                ctrl.purchaseContextType = 'subscription';
+                this.subscriptionDescriptor = loadSubscription.data;
             }],
             controllerAs: 'ctrl'
         })
         .state('subscriptions.single.view-reservation', {
             url:'/reservation/:reservationId?fromCreation',
-            template: '<reservation-view purchase-context="ctrl.subscriptionDescriptor" purchase-context-type="ctrl.purchaseContextType" reservation-descriptor="ctrl.reservationDescriptor"></reservation-view>',
-            controller: function(loadSubscription, getReservationDescriptor) {
+            template: '<alfio-reservation-detail data-purchase-context-type="subscription" data-public-identifier="{{ctrl.subscriptionDescriptor.publicIdentifier}}" data-organization-id="{{ctrl.subscriptionDescriptor.organizationId}}" data-reservation-id="{{ctrl.reservationId}}"></alfio-reservation-detail>',
+            controller: ['loadSubscription', '$stateParams', function(loadSubscription, $stateParams) {
                 this.subscriptionDescriptor = loadSubscription.data;
-                this.purchaseContextType = 'subscription';
-                this.reservationDescriptor = getReservationDescriptor.data.data;
-            },
-            controllerAs: 'ctrl',
-            resolve: {
-                'getReservationDescriptor': function(AdminReservationService, $stateParams) {
-                    return AdminReservationService.load('subscription', $stateParams.subscriptionId, $stateParams.reservationId);
-                }
-            }
+                this.reservationId = $stateParams.reservationId;
+            }],
+            controllerAs: 'ctrl'
         })
         .state('subscriptions.new', {
             url: '/:organizationId/create',
@@ -81,6 +75,26 @@
                 this.organizationId = $stateParams.organizationId;
                 this.subscriptionId = $stateParams.subscriptionId;
             }]
+        })
+        .state('subscriptions.single.email-log', {
+            url: '/email-log?search&page',
+            // The Lit component owns filtering; query changes must preserve its DOM.
+            reloadOnSearch: false,
+            template: '<alfio-email-log data-purchase-context-type="subscription" data-public-identifier="{{ctrl.subscriptionDescriptor.publicIdentifier}}" data-title="{{ctrl.subscriptionDescriptor.title.en}}" data-time-zone="{{ctrl.subscriptionDescriptor.timeZone}}"></alfio-email-log>',
+            controller: ['loadSubscription', function(loadSubscription) {
+                this.subscriptionDescriptor = loadSubscription.data;
+            }],
+            controllerAs: 'ctrl'
+        })
+        .state('subscriptions.single.email-log-detail', {
+            url: '/email-log/:messageId?search&page',
+            reloadOnSearch: false,
+            template: '<alfio-email-log data-purchase-context-type="subscription" data-public-identifier="{{ctrl.subscriptionDescriptor.publicIdentifier}}" data-title="{{ctrl.subscriptionDescriptor.title.en}}" data-time-zone="{{ctrl.subscriptionDescriptor.timeZone}}" data-message-id="{{ctrl.messageId}}"></alfio-email-log>',
+            controller: ['loadSubscription', '$stateParams', function(loadSubscription, $stateParams) {
+                this.subscriptionDescriptor = loadSubscription.data;
+                this.messageId = $stateParams.messageId;
+            }],
+            controllerAs: 'ctrl'
         })
         .state('subscriptions.single.additional-fields', {
             url:'/additional-fields',

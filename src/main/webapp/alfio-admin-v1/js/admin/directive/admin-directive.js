@@ -238,6 +238,31 @@
         };
     });
 
+    // binds the DOM events fired by a Lit component to scope functions, which receive the event detail:
+    // <alfio-x lit-events="{'alfio-x-changed': ctrl.onChange}"></alfio-x>
+    directives.directive('litEvents', function() {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                var handlers = scope.$eval(attrs.litEvents) || {};
+                var listeners = Object.keys(handlers).map(function(name) {
+                    var listener = function(e) {
+                        scope.$applyAsync(function() {
+                            handlers[name](e.detail);
+                        });
+                    };
+                    element[0].addEventListener(name, listener);
+                    return {name: name, listener: listener};
+                });
+                scope.$on('$destroy', function() {
+                    listeners.forEach(function(l) {
+                        element[0].removeEventListener(l.name, l.listener);
+                    });
+                });
+            }
+        };
+    });
+
     directives.directive('grabFocus', function() {
         return {
             restrict: 'A',
@@ -865,74 +890,6 @@
         };
     });
 
-    directives.directive('pendingPaymentsLink', ['$rootScope', '$interval', 'EventService', function($rootScope, $interval, EventService) {
-        return {
-            restrict: 'AE',
-            scope: {
-                event: '=',
-                eventName: '=',
-                styleClass: '@'
-            },
-            bindToController: true,
-            controllerAs: 'ctrl',
-            template: '<a ng-class="ctrl.styleClass" data-ui-sref="events.single.pending-payments({eventName: ctrl.eventName})"><i class="fa fa-dollar"></i> Pending Payments <pending-payments-badge event-name="{{ctrl.eventName}}"></pending-payments-badge></a>',
-            controller: ['$scope', function($scope) {
-                var ctrl = this;
-                ctrl.styleClass = ctrl.styleClass || 'btn btn-warning';
-                var getPendingPayments = function() {
-                    var eventPresent = ctrl.event && _.includes(ctrl.event.allowedPaymentProxies, 'OFFLINE');
-                    if(eventPresent || (!ctrl.event && ctrl.eventName != null && ctrl.eventName.length > 0)) {
-                        EventService.getPendingPaymentsCount(ctrl.eventName).then(function(count) {
-                            $rootScope.$broadcast('PendingReservationsFound', count);
-                        });
-                    }
-                };
-                getPendingPayments();
-                var promise = $interval(getPendingPayments, 10000);
-
-                $scope.$on('$destroy', function() {
-                    $interval.cancel(promise);
-                });
-            }]
-        }
-    }]);
-
-    directives.directive('pendingPaymentsBadge', function($rootScope, $interval, EventService) {
-        return {
-            restrict: 'AE',
-            scope: false,
-            template: '<span ng-class="styleClass">{{pendingReservationsCount}}</span>',
-            link: function(scope, element, attrs) {
-                var eventName = attrs.eventName;
-                scope.pendingReservationsCount = 0;
-                scope.styleClass = attrs.styleClass || "badge";
-                if(angular.isDefined(eventName) && eventName != null && eventName.length > 0) {
-                    var getPendingPayments = function() {
-                        EventService.getPendingPaymentsCount(eventName).then(function(count) {
-                            scope.pendingReservationsCount = count;
-                            $rootScope.$broadcast('PendingReservationsFound', count);
-                        });
-                    };
-                    if (window.USER_IS_OWNER) {
-                        getPendingPayments();
-                        var promise = $interval(getPendingPayments, 10000);
-
-                        scope.$on('$destroy', function() {
-                            $interval.cancel(promise);
-                        });
-                    }
-                } else {
-                    var listener = $rootScope.$on('PendingReservationsFound', function(data) {
-                        scope.pendingReservationsCount = data;
-                    });
-                    scope.$on('$destroy', function() {
-                        listener();
-                    });
-                }
-            }
-        }
-    });
-
     directives.directive('errorSensitive', function($rootScope) {
         return {
             restrict: 'A',
@@ -1021,27 +978,6 @@
                 }
             }
         }
-    });
-
-    directives.directive('editMessages', function() {
-       return {
-           restrict: 'E',
-           scope: {
-               editMode: '=',
-               messages: '=',
-               online: '='
-           },
-           templateUrl: window.ALFIO_CONTEXT_PATH + '/resources/angular-templates/admin/partials/custom-message/edit-messages.html',
-           controller: ['$scope', function($scope) {
-               $scope.attachTicketFlag = false;
-               $scope.updateTicketFlag = function() {
-                   $scope.messages.forEach(function(m) {
-                       m.attachTicket = !m.attachTicket;
-                   });
-               };
-               $scope.sendAttachmentMessage = $scope.online ? 'Append access information at the end of the email' : 'Send attendee\'s ticket along with this message';
-           }]
-       };
     });
 
     directives.directive('waitingQueueDisplayCounter', function() {

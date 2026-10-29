@@ -45,11 +45,42 @@ export interface AlfioEvent extends PurchaseContext {
     finalPrice:                        number;
     netPrice:                          number;
     taxablePrice:                      number;
+    timeZone:                          string;
 }
 
 export interface TicketCategory {
     description:                  LocalizedContent;
     name:                         string;
     id:                           number;
+    expired:                      boolean;
+    accessRestricted:             boolean;
+}
+
+export type PaymentProxy = 'STRIPE' | 'ON_SITE' | 'OFFLINE' | 'NONE' | 'ADMIN' | 'PAYPAL' | 'MOLLIE' | 'SAFERPAY' | 'CUSTOM_OFFLINE';
+export type EventStatus = 'DRAFT' | 'PUBLIC' | 'DISABLED';
+
+export interface EventStatistic {
+    id: number;
+    shortName: string;
+    displayName: string;
+    status: EventStatus;
+    expired: boolean;
+    warningNeeded: boolean;
+    availableSeats: number;
+    soldTickets: number;
+    checkedInTickets: number;
+    notSoldTickets: number;
+    notAllocatedTickets: number;
+    pendingTickets: number;
+    dynamicAllocation: number;
+    releasedTickets: number;
+    formattedBegin: string;
+    formattedEnd: string;
+    fileBlobId: string | null;
+    visibleForCurrentUser: boolean;
+    displayStatistics: boolean;
+    organizationId: number;
+    allowedPaymentProxies: PaymentProxy[];
+    timeZone: string;
 }
 

@@ -25,7 +25,8 @@ import alfio.util.BaseIntegrationTest;
 import alfio.util.ClockProvider;
 import alfio.util.Json;
 import alfio.util.RefreshableDataSource;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import tools.jackson.databind.json.JsonMapper;
 import com.stripe.Stripe;
 import com.zaxxer.hikari.HikariConfig;
 import jakarta.annotation.PostConstruct;
@@ -38,7 +39,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.ByteArrayResource;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
@@ -59,6 +59,8 @@ public class BaseTestConfiguration {
 
     public static final int MAX_POOL_SIZE = 5;
     public static final String POSTGRES_DB = "alfio";
+    // must embed the same API version as the stripe-java SDK, see StripeMockVersionAlignmentTest
+    public static final String STRIPE_MOCK_IMAGE = "stripe/stripe-mock:v0.205.0";
     private static final Logger log = LoggerFactory.getLogger(BaseTestConfiguration.class);
 
     @Bean
@@ -67,7 +69,7 @@ public class BaseTestConfiguration {
         return PlatformProvider.DEFAULT;
     }
 
-    private static PostgreSQLContainer<?> postgres;
+    private static PostgreSQLContainer postgres;
     private static GenericContainer<?> stripeMock;
 
     @Bean
@@ -77,7 +79,7 @@ public class BaseTestConfiguration {
         String postgresVersion = Objects.requireNonNullElse(System.getProperty("pgsql.version"), "10");
         log.debug("Running tests using PostgreSQL v.{}", postgresVersion);
         if (postgres == null) {
-            postgres = new PostgreSQLContainer<>("postgres:"+postgresVersion)
+            postgres = new PostgreSQLContainer("postgres:"+postgresVersion)
                 .withDatabaseName(POSTGRES_DB)
                 .withInitScript("init-db-user.sql");
             postgres.start();
@@ -141,7 +143,7 @@ public class BaseTestConfiguration {
     @PostConstruct
     public void initStripeMock() {
         if (stripeMock == null) {
-            stripeMock = new GenericContainer<>("stripe/stripe-mock:latest")
+            stripeMock = new GenericContainer<>(STRIPE_MOCK_IMAGE)
                 .withExposedPorts(12111, 12112);
             stripeMock.start();
             if ("true".equals(System.getenv().get("TESTCONTAINERS_RYUK_DISABLED"))) {
@@ -155,7 +157,7 @@ public class BaseTestConfiguration {
     }
 
     @Bean
-    public ObjectMapper objectMapper() {
+    public JsonMapper objectMapper() {
         return Json.OBJECT_MAPPER;
     }
 }

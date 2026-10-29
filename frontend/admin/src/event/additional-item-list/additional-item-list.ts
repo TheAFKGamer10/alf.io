@@ -19,6 +19,7 @@ import {when} from "lit/directives/when.js";
 import {AlfioDialogClosed, dispatchFeedback} from "../../model/dom-events.ts";
 import {ConfirmationDialogService} from "../../service/confirmation-dialog.ts";
 import {ContentLanguage} from "../../model/purchase-context.ts";
+import "../../components/format-date.ts";
 
 interface Model {
     event: AlfioEvent;
@@ -150,7 +151,7 @@ export class AdditionalItemList extends LitElement {
         await customElements.whenDefined('alfio-additional-item-edit');
         itemEditComponent.addEventListener('alfio-dialog-closed', async (e) => {
             await this.editDialogClosed(e);
-            setTimeout(() => document.body.removeChild(div));
+            setTimeout(() => div.remove());
         });
         await itemEditComponent.open({
             supportedLanguages: model.event.contentLanguages,
@@ -186,20 +187,21 @@ export class AdditionalItemList extends LitElement {
                 }
             }
             return false;
-        } catch(e) {
+        } catch {
             return false;
         }
     }
 
     private generateFooter(model: Model, listData: ListData): TemplateResult {
         const warning = () => html`
-            <div class="alert alert-warning">
-                <p><span class="fa fa-warning"></span> Cannot add <span>${model.type === 'DONATION' ? 'donations' : 'additional options'}</span> to an event marked as "free of charge".</p>
+            <sl-alert open variant="warning">
+                <sl-icon name="exclamation-triangle" slot="icon"></sl-icon>
+                <p>Cannot add <span>${model.type === 'DONATION' ? 'donations' : 'additional options'}</span> to an event marked as "free of charge".</p>
                 <p>Please change this setting, add a default price > 0, specify currency and Taxes</p>
-            </div>`;
+            </sl-alert>`;
         const footer = () => html`
             <div class="row">
-                <div class="col-xs-12" style="font-size: 20px">
+                <div class="col-xs-12" style="font-size: var(--sl-font-size-large)">
                     <sl-button type="button" variant="success" @click=${() => this.addNew(model, listData.items.length)} size="large">
                         <sl-icon name="plus-circle" slot="prefix"></sl-icon>
                         Add new
@@ -246,11 +248,11 @@ export class AdditionalItemList extends LitElement {
                             <div class="info-container">
                                 <div class="info">
                                     <strong>Inception</strong>
-                                    <sl-format-date date=${item.inception.date + 'T' + item.inception.time} month="long" day="numeric" year="numeric" hour="numeric" minute="numeric"></sl-format-date>
+                                    <alfio-format-date .date=${item.inception}></alfio-format-date>
                                 </div>
                                 <div class="info">
                                     <strong>Expiration</strong>
-                                    <sl-format-date date=${item.expiration.date + 'T' + item.expiration.time} month="long" day="numeric" year="numeric" hour="numeric" minute="numeric"></sl-format-date>
+                                    <alfio-format-date .date=${item.expiration}></alfio-format-date>
                                 </div>
                                 <div class="info">
                                     <strong>Price</strong>
@@ -298,8 +300,8 @@ export class AdditionalItemList extends LitElement {
         if (listData.allowDownload) {
             return html`
                 <div class="download-container pb-2">
-                    <sl-button href=${`/admin/api/events/${model.event.publicIdentifier}/additional-services/${this.type}/export`} target="_blank" rel="noopener">
-                                <sl-icon name="download"></sl-icon> Export purchased items
+<sl-button href=${`/admin/api/events/${model.event.publicIdentifier}/additional-services/${this.type}/export`} target="_blank" rel="noopener">
+                                 <sl-icon name="download" slot="prefix"></sl-icon> Export purchased items
                     </sl-button>
                 </div>`;
         }

@@ -118,7 +118,7 @@ public class EventApiV1Controller {
     @Transactional
     public ResponseEntity<String> create(@RequestBody EventCreationRequest request, Principal user) {
         String imageRef = Optional.ofNullable(request.getImageUrl()).map(this::fetchImage).orElse(null);
-        Organization organization = userManager.findUserOrganizations(user.getName()).get(0);
+        Organization organization = userManager.findUserOrganizations(user.getName()).getFirst();
         AtomicReference<Errors> errorsContainer = new AtomicReference<>();
         Result<String> result =  new Result.Builder<String>()
             .checkPrecondition(() -> isNotBlank(request.getTitle()), ErrorCode.custom("invalid.title", "Invalid title"))
@@ -181,7 +181,7 @@ public class EventApiV1Controller {
     public ResponseEntity<EventWithAdditionalInfo> stats(@PathVariable String slug, Principal user) {
         accessService.checkEventOwnership(user, slug);
         Result<EventWithAdditionalInfo> result = new Result.Builder<EventWithAdditionalInfo>()
-            .build(() -> eventStatisticsManager.getEventWithAdditionalInfo(slug,user.getName()));
+            .build(() -> eventStatisticsManager.getEventWithAdditionalInfoAndAdditionalServices(slug,user.getName()));
 
         if(result.isSuccess()) {
             return ResponseEntity.ok(result.getData());
@@ -301,7 +301,7 @@ public class EventApiV1Controller {
     }
 
     private Optional<Event> updateEvent(String slug, EventCreationRequest request, Principal user, String imageRef) {
-        Organization organization = userManager.findUserOrganizations(user.getName()).get(0);
+        Organization organization = userManager.findUserOrganizations(user.getName()).getFirst();
         EventWithAdditionalInfo original = eventStatisticsManager.getEventWithAdditionalInfo(slug,user.getName());
 
         Event event = original.getEvent();
@@ -341,7 +341,7 @@ public class EventApiV1Controller {
 
     private Optional<String> insertEvent(EventCreationRequest request, Principal user, String imageRef) {
         try {
-            Organization organization = userManager.findUserOrganizations(user.getName()).get(0);
+            Organization organization = userManager.findUserOrganizations(user.getName()).getFirst();
             EventModification em = request.toEventModification(organization,eventNameManager::generateShortName,imageRef);
             eventManager.createEvent(em, user.getName());
             var eventWithStatistics = eventStatisticsManager.getEventWithAdditionalInfo(em.getShortName(),user.getName());

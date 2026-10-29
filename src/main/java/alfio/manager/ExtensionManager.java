@@ -22,6 +22,7 @@ import alfio.controller.form.UpdateTicketOwnerForm;
 import alfio.extension.ExtensionService;
 import alfio.extension.exception.AlfioScriptingException;
 import alfio.manager.payment.PaymentSpecification;
+import alfio.manager.support.AdditionalServiceHelper;
 import alfio.manager.support.extension.ExtensionCapability;
 import alfio.manager.support.extension.ExtensionEvent;
 import alfio.manager.support.extension.ValidationErrorNotifier;
@@ -58,7 +59,6 @@ import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.function.Function;
@@ -95,6 +95,7 @@ public class ExtensionManager {
     private final ConfigurationManager configurationManager;
     private final TransactionRepository transactionRepository;
     private final TicketCategoryRepository ticketCategoryRepository;
+    private final AdditionalServiceHelper additionalServiceHelper;
 
 
     boolean isSupported(ExtensionCapability extensionCapability, PurchaseContext purchaseContext) {
@@ -223,7 +224,9 @@ public class ExtensionManager {
                 TICKET, ticket,
                 ADDITIONAL_INFO, Objects.requireNonNullElse(additionalInfo, Map.of()),
                 EVENT_METADATA, Objects.requireNonNullElseGet(eventRepository.getMetadataForEvent(event.getId()), AlfioMetadata::empty),
-                "onlineAccessTicket", EventUtil.isAccessOnline(category, event)
+                "onlineAccessTicket", EventUtil.isAccessOnline(category, event),
+                "linkedAdditionalServices", additionalServiceHelper.findLinkedAdditionalServices(ticket, event),
+                "ticketQrCode", ticket.ticketCode(event.getPrivateKey(), event.supportsQRCodeCaseInsensitive())
             ));
     }
 
@@ -458,7 +461,7 @@ public class ExtensionManager {
             if(response == null || response.isEmpty()) {
                 return false;
             }
-            Path tempFilePath = Paths.get(response.getTempFilePath());
+            Path tempFilePath = Path.of(response.getTempFilePath());
             if(Files.exists(tempFilePath)) {
                 Files.copy(tempFilePath, outputStream);
                 Files.delete(tempFilePath);
